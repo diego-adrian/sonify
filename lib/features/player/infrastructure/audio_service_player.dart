@@ -3,6 +3,7 @@
 // ignore_for_file: experimental_member_use
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
@@ -15,19 +16,31 @@ import 'sonify_audio_handler.dart';
 
 /// Adaptador del puerto de reproducción sobre [SonifyAudioHandler].
 final class AudioServicePlayer implements AudioPlayerPort {
-  AudioServicePlayer(this._handler, this._library) {
+  AudioServicePlayer(this._handler, this._library, this._cache) {
     _subscriptions = [
       _player.sequenceStateStream.listen((_) => _emit()),
-      _player.playerStateStream.listen((_) => _emit()),
+      _player.playerStateStream.listen(_onPlayerState),
       _player.durationStream.listen((_) => _emit()),
+      _player.loopModeStream.listen((_) => _emit()),
+      _player.positionDiscontinuityStream.listen(_onDiscontinuity),
     ];
   }
+
+  /// Escuchada al menos esto (o hasta el final) se guarda en la caché.
+  static const minListenToCache = Duration(seconds: 30);
 
   final SonifyAudioHandler _handler;
 
   /// Descargas del usuario actual: si una canción está en el dispositivo,
   /// suena sin red.
   final LocalAudioLibrary Function() _library;
+
+  /// Lo escuchado por streaming: la 2.ª vez suena sin red.
+  final ListeningCache Function() _cache;
+
+  /// Mientras se carga una cola nueva, los cambios de pista no son
+  /// "terminó de sonar".
+  bool _loading = false;
   final _songsById = <String, Song>{};
   final _changes = StreamController<PlaybackSnapshot>.broadcast();
   late final List<StreamSubscription<Object?>> _subscriptions;
@@ -53,14 +66,28 @@ final class AudioServicePlayer implements AudioPlayerPort {
 
   @override
   Future<void> playQueue(List<Song> songs, {required int startIndex}) async {
-    _songsById
-      ..clear()
-      ..addEntries(songs.map((song) => MapEntry(song.id, song)));
-    final sources = await Future.wait(songs.map(_source));
-    await _handler.load(songs.map(_mediaItem).toList(), sources, startIndex);
+    _loading = true;
+    try {
+      await _leaveCurrent();
+      final cache = _cache();
+      await cache.clearTemporary();
+      cache.protect({for (final song in songs) song.id});
+      _songsById
+        ..clear()
+        ..addEntries(songs.map((song) => MapEntry(song.id, song)));
+      await _load(songs, startIndex);
+    } finally {
+      _loading = false;
+    }
     // `play()` de just_audio no termina hasta pausar: no se espera.
     unawaited(_handler.play());
   }
+
+  Future<void> _load(List<Song> songs, int startIndex) => _handler.load(
+    songs.map(_mediaItem).toList(),
+    () => Future.wait(songs.map(_source)),
+    startIndex,
+  );
 
   @override
   Future<void> play() async => unawaited(_handler.play());
@@ -89,7 +116,19 @@ final class AudioServicePlayer implements AudioPlayerPort {
   );
 
   @override
-  Future<void> stop() => _handler.stop();
+  Future<void> setRepeat(PlaybackRepeat mode) =>
+      _handler.setRepeatMode(switch (mode) {
+        PlaybackRepeat.off => AudioServiceRepeatMode.none,
+        PlaybackRepeat.all => AudioServiceRepeatMode.all,
+        PlaybackRepeat.one => AudioServiceRepeatMode.one,
+      });
+
+  @override
+  Future<void> stop() async {
+    await _leaveCurrent();
+    await _handler.stop();
+    await _cache().clearTemporary();
+  }
 
   void _emit() {
     final sequence = _player.sequenceState;
@@ -115,15 +154,82 @@ final class AudioServicePlayer implements AudioPlayerPort {
           state.processingState == ProcessingState.loading ||
           state.processingState == ProcessingState.buffering,
       shuffle: sequence.shuffleModeEnabled,
+      repeat: switch (_player.loopMode) {
+        LoopMode.off => PlaybackRepeat.off,
+        LoopMode.all => PlaybackRepeat.all,
+        LoopMode.one => PlaybackRepeat.one,
+      },
       duration: _player.duration,
     );
     _changes.add(_last);
   }
 
+  /// Descargada → caché de lo escuchado → streaming (que se va guardando
+  /// en un temporal para poder pasar a la caché).
   Future<AudioSource> _source(Song song) async {
-    final local = await _library().find(song.id);
+    final local =
+        await _library().find(song.id) ?? await _cache().find(song.id);
     if (local != null) return _LocalAudioSource(local, tag: song.id);
-    return AudioSource.uri(song.audio!, tag: song.id);
+    final temp = await _cache().tempPathFor(song.id);
+    if (temp == null) return AudioSource.uri(song.audio!, tag: song.id);
+    // Baja la canción entera de una vez (la radio luego descansa) y la sirve
+    // al reproductor mientras llega.
+    return LockCachingAudioSource(
+      song.audio!,
+      cacheFile: File(temp),
+      tag: song.id,
+    );
+  }
+
+  void _onPlayerState(PlayerState state) {
+    _emit();
+    // Terminó la última de la cola: sigue siendo la actual.
+    if (state.processingState == ProcessingState.completed) {
+      final song = _songAt(_player.currentIndex);
+      if (song != null) {
+        unawaited(
+          _cache().finished(song, listenedEnough: true, stillCurrent: true),
+        );
+      }
+    }
+  }
+
+  /// Cambio de pista (o una vuelta completa con repetir una).
+  void _onDiscontinuity(PositionDiscontinuity discontinuity) {
+    if (_loading) return;
+    final previous = discontinuity.previousEvent;
+    final sameItem = previous.currentIndex == discontinuity.event.currentIndex;
+    final completed =
+        discontinuity.reason == PositionDiscontinuityReason.autoAdvance;
+    if (!completed && sameItem) return; // seek dentro de la misma canción
+    final song = _songAt(previous.currentIndex);
+    if (song == null) return;
+    unawaited(
+      _cache().finished(
+        song,
+        listenedEnough:
+            completed || previous.updatePosition >= minListenToCache,
+        stillCurrent: sameItem,
+      ),
+    );
+  }
+
+  Future<void> _leaveCurrent() async {
+    final song = _songAt(_player.currentIndex);
+    if (song == null) return;
+    await _cache().finished(
+      song,
+      listenedEnough:
+          _player.position >= minListenToCache ||
+          _player.processingState == ProcessingState.completed,
+      stillCurrent: false,
+    );
+  }
+
+  Song? _songAt(int? index) {
+    final sequence = _player.sequence;
+    if (index == null || index < 0 || index >= sequence.length) return null;
+    return _songsById[sequence[index].tag];
   }
 
   static MediaItem _mediaItem(Song song) {

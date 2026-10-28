@@ -142,12 +142,6 @@ abstract class AppLocalizations {
   /// **'Cuenta'**
   String get account;
 
-  /// No description provided for @search.
-  ///
-  /// In es, this message translates to:
-  /// **'Buscar'**
-  String get search;
-
   /// No description provided for @playSong.
   ///
   /// In es, this message translates to:
@@ -172,17 +166,29 @@ abstract class AppLocalizations {
   /// **'Reintentar'**
   String get retry;
 
-  /// No description provided for @tabSimilar.
+  /// No description provided for @catalogLoadMoreError.
   ///
   /// In es, this message translates to:
-  /// **'Similares'**
-  String get tabSimilar;
+  /// **'No se pudieron cargar más canciones'**
+  String get catalogLoadMoreError;
 
-  /// No description provided for @tabUpNext.
+  /// No description provided for @showPlayer.
   ///
   /// In es, this message translates to:
-  /// **'A continuación'**
-  String get tabUpNext;
+  /// **'Ver reproductor'**
+  String get showPlayer;
+
+  /// No description provided for @songNeedsConnection.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión: descárgala para escucharla sin red'**
+  String get songNeedsConnection;
+
+  /// No description provided for @refresh.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar'**
+  String get refresh;
 
   /// No description provided for @shuffle.
   ///
@@ -208,35 +214,29 @@ abstract class AppLocalizations {
   /// **'Reproducir'**
   String get play;
 
-  /// No description provided for @reorder.
-  ///
-  /// In es, this message translates to:
-  /// **'Reordenar'**
-  String get reorder;
-
-  /// No description provided for @similarEmpty.
-  ///
-  /// In es, this message translates to:
-  /// **'No hay canciones similares todavía.'**
-  String get similarEmpty;
-
-  /// No description provided for @upNextEmpty.
-  ///
-  /// In es, this message translates to:
-  /// **'No hay más canciones en la cola.'**
-  String get upNextEmpty;
-
   /// No description provided for @pause.
   ///
   /// In es, this message translates to:
   /// **'Pausar'**
   String get pause;
 
-  /// No description provided for @showQueue.
+  /// No description provided for @repeatOff.
   ///
   /// In es, this message translates to:
-  /// **'Ver cola'**
-  String get showQueue;
+  /// **'Repetir: desactivado'**
+  String get repeatOff;
+
+  /// No description provided for @repeatAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Repetir todo'**
+  String get repeatAll;
+
+  /// No description provided for @repeatOne.
+  ///
+  /// In es, this message translates to:
+  /// **'Repetir esta canción'**
+  String get repeatOne;
 
   /// No description provided for @uploadTitle.
   ///
@@ -274,46 +274,22 @@ abstract class AppLocalizations {
   /// **'Sin género'**
   String get uploadGenreNone;
 
-  /// No description provided for @uploadLicense.
+  /// No description provided for @uploadGenreSearch.
   ///
   /// In es, this message translates to:
-  /// **'Licencia'**
-  String get uploadLicense;
+  /// **'Escribe para buscar'**
+  String get uploadGenreSearch;
 
-  /// No description provided for @licenseCc0.
+  /// No description provided for @uploadGenreNoResults.
   ///
   /// In es, this message translates to:
-  /// **'CC0 · Dominio público'**
-  String get licenseCc0;
-
-  /// No description provided for @licenseCcBy.
-  ///
-  /// In es, this message translates to:
-  /// **'CC BY · Atribución'**
-  String get licenseCcBy;
-
-  /// No description provided for @licenseCcBySa.
-  ///
-  /// In es, this message translates to:
-  /// **'CC BY-SA · Atribución, compartir igual'**
-  String get licenseCcBySa;
-
-  /// No description provided for @licenseCcByNc.
-  ///
-  /// In es, this message translates to:
-  /// **'CC BY-NC · Atribución, no comercial'**
-  String get licenseCcByNc;
-
-  /// No description provided for @licenseCcByNcSa.
-  ///
-  /// In es, this message translates to:
-  /// **'CC BY-NC-SA · Atribución, no comercial, compartir igual'**
-  String get licenseCcByNcSa;
+  /// **'No hay géneros con ese nombre'**
+  String get uploadGenreNoResults;
 
   /// No description provided for @uploadRights.
   ///
   /// In es, this message translates to:
-  /// **'Declaro que soy el autor de esta canción o tengo los derechos para publicarla con la licencia elegida.'**
+  /// **'Declaro que soy el autor de esta canción o tengo los derechos para publicarla en dominio público (CC0): cualquiera podrá escucharla, compartirla y usarla libremente.'**
   String get uploadRights;
 
   /// No description provided for @uploadSubmit.
@@ -489,6 +465,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Quitar descarga'**
   String get downloadRemove;
+
+  /// No description provided for @downloadRemoveConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Borrar «{title}» de tus descargas? Ya no podrás escucharla sin señal.'**
+  String downloadRemoveConfirm(String title);
 
   /// No description provided for @downloadRetry.
   ///

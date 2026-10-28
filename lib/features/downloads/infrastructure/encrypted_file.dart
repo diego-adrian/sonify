@@ -16,14 +16,16 @@ const _chunk = 256 * 1024;
 typedef EncryptedFileInfo = ({int plainLength, String sha256});
 
 /// Cifra [source] en [target] por bloques (sin cargarlo entero en RAM),
-/// calcula su SHA-256 en la misma pasada y borra [source].
+/// calcula su SHA-256 en la misma pasada y borra [source] (salvo con
+/// [keepSource], si el reproductor todavía lo está usando).
 Future<EncryptedFileInfo> encryptFile({
   required String source,
   required String target,
   required Uint8List key,
+  bool keepSource = false,
 }) {
   final iv = _randomIv();
-  return Isolate.run(() => _encrypt(source, target, key, iv));
+  return Isolate.run(() => _encrypt(source, target, key, iv, keepSource));
 }
 
 /// Lee [length] bytes en claro desde la posición [start] del audio.
@@ -70,6 +72,7 @@ EncryptedFileInfo _encrypt(
   String target,
   Uint8List key,
   Uint8List iv,
+  bool keepSource,
 ) {
   final partial = File('$target.part');
   final input = File(source).openSync();
@@ -97,7 +100,7 @@ EncryptedFileInfo _encrypt(
   }
   hasher.close();
   partial.renameSync(target);
-  File(source).deleteSync();
+  if (!keepSource) File(source).deleteSync();
   return (plainLength: offset, sha256: digest.value.toString());
 }
 

@@ -26,5 +26,7 @@ abstract interface class AudioPlayerPort {
 
   Future<void> setShuffle(bool enabled);
 
+  Future<void> setRepeat(PlaybackRepeat mode);
+
   Future<void> stop();
 }

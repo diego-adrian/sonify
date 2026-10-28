@@ -9,6 +9,7 @@ import 'package:sonify/features/auth/infrastructure/fake_auth_repository.dart';
 import '../../../helpers/fake_audio_player.dart';
 import '../../../helpers/fake_catalog_repository.dart';
 import '../../../helpers/fake_download_repository.dart';
+import '../../../helpers/fake_network_status.dart';
 
 void main() {
   testWidgets('login con Google lleva a la Home y cerrar sesión vuelve', (
@@ -32,6 +33,7 @@ void main() {
           authRepositoryProvider.overrideWithValue(repository),
           audioPlayerProvider.overrideWithValue(player),
           downloadRepositoryProvider.overrideWithValue(downloads),
+          networkStatusProvider.overrideWithValue(FakeNetworkStatus()),
           catalogRepositoryProvider.overrideWithValue(
             const FakeCatalogRepository(),
           ),
@@ -49,8 +51,10 @@ void main() {
 
     expect(find.text('Hola, Artista'), findsOneWidget);
     // La primera canción del catálogo queda arriba como actual.
-    expect(find.text('Mariposa Traicionera'), findsOneWidget);
-    expect(find.text('Similares'), findsOneWidget);
+    // (arriba y también en la lista, que muestra todo el catálogo).
+    expect(find.text('Mariposa Traicionera'), findsNWidgets(2));
+    // Cada fila tiene su botón de descarga, además de mantenerla presionada.
+    expect(find.byTooltip('Descargar'), findsWidgets);
 
     // ▶ reproduce desde la canción mostrada.
     await tester.tap(find.byTooltip('Reproducir'));

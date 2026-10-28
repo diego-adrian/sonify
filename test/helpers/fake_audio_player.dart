@@ -14,13 +14,18 @@ class FakeAudioPlayer implements AudioPlayerPort {
     _changes.add(next);
   }
 
-  PlaybackSnapshot _copy({int? index, bool? playing, bool? shuffle}) =>
-      PlaybackSnapshot(
-        queue: state.queue,
-        currentIndex: index ?? state.currentIndex,
-        playing: playing ?? state.playing,
-        shuffle: shuffle ?? state.shuffle,
-      );
+  PlaybackSnapshot _copy({
+    int? index,
+    bool? playing,
+    bool? shuffle,
+    PlaybackRepeat? repeat,
+  }) => PlaybackSnapshot(
+    queue: state.queue,
+    currentIndex: index ?? state.currentIndex,
+    playing: playing ?? state.playing,
+    shuffle: shuffle ?? state.shuffle,
+    repeat: repeat ?? state.repeat,
+  );
 
   @override
   Stream<PlaybackSnapshot> snapshots() async* {
@@ -66,6 +71,10 @@ class FakeAudioPlayer implements AudioPlayerPort {
 
   @override
   Future<void> setShuffle(bool enabled) async => _set(_copy(shuffle: enabled));
+
+  @override
+  Future<void> setRepeat(PlaybackRepeat mode) async =>
+      _set(_copy(repeat: mode));
 
   @override
   Future<void> stop() async => _set(PlaybackSnapshot.idle);

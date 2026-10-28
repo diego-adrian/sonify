@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_typography.dart';
+
 import 'sonify_colors.dart';
 
 abstract final class AppTheme {
@@ -27,7 +29,7 @@ abstract final class AppTheme {
     );
   }
 
-  static const fontFamily = 'Poppins';
+  static const fontFamily = AppTypography.fontFamily;
 
   static final ThemeData light = _build(
     brightness: Brightness.light,

@@ -57,4 +57,15 @@ void main() {
     expect(snapshot.current?.id, '2');
     expect(snapshot.upNext.map((s) => s.id), ['3']);
   });
+
+  test('CycleRepeat: desactivado → todo → una → desactivado', () async {
+    await PlaySongs(player)([_song('1')], _song('1'));
+    final seen = <PlaybackRepeat>[];
+    for (var i = 0; i < 3; i++) {
+      await CycleRepeat(player)(player.state);
+      seen.add(player.state.repeat);
+    }
+
+    expect(seen, [PlaybackRepeat.all, PlaybackRepeat.one, PlaybackRepeat.off]);
+  });
 }

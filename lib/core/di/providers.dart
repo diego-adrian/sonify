@@ -1,6 +1,9 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -20,6 +23,9 @@ import '../../features/downloads/application/download_use_cases.dart';
 import '../../features/downloads/domain/download_ports.dart';
 import '../../features/downloads/infrastructure/background_download_repository.dart';
 import '../../features/downloads/infrastructure/device_storage.dart';
+import '../../features/downloads/infrastructure/download_key_store.dart';
+import '../../features/downloads/infrastructure/encrypted_listening_cache.dart';
+import '../../features/downloads/infrastructure/listening_cache_database.dart';
 import '../../features/player/application/playback_use_cases.dart';
 import '../../features/player/domain/audio_player_port.dart';
 import '../../features/player/domain/local_audio.dart';
@@ -31,6 +37,8 @@ import '../../features/upload/infrastructure/file_picker_audio_picker.dart';
 import '../../features/upload/infrastructure/file_picker_cover_picker.dart';
 import '../../features/upload/infrastructure/supabase_upload_repository.dart';
 import '../config/app_config.dart';
+import '../network/connectivity_network_status.dart';
+import '../network/network_status.dart';
 
 // Composition root: el único lugar que conecta puertos con adaptadores.
 
@@ -54,6 +62,10 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return repository;
 });
 
+final networkStatusProvider = Provider<NetworkStatus>(
+  (ref) => ConnectivityNetworkStatus(Connectivity()),
+);
+
 final signInProvider = Provider(
   (ref) => SignIn(ref.watch(authRepositoryProvider)),
 );
@@ -73,6 +85,7 @@ final catalogRepositoryProvider = Provider<CatalogRepository>(
       cdnBaseUrl: AppConfig.cdnBaseUrl,
     ),
     ref.watch(downloadRepositoryProvider),
+    cache: ref.watch(listeningCacheProvider),
   ),
 );
 
@@ -92,8 +105,9 @@ final audioHandlerProvider = Provider<SonifyAudioHandler>(
 final audioPlayerProvider = Provider<AudioPlayerPort>((ref) {
   final player = AudioServicePlayer(
     ref.watch(audioHandlerProvider),
-    // Se lee al reproducir: cambia con la sesión sin recrear el reproductor.
+    // Se leen al reproducir: cambian con la sesión sin recrear el reproductor.
     () => ref.read(localAudioLibraryProvider),
+    () => ref.read(listeningCacheProvider),
   );
   ref.onDispose(player.dispose);
   return player;
@@ -122,6 +136,9 @@ final skipToPreviousProvider = Provider(
 );
 final skipToSongProvider = Provider(
   (ref) => SkipToSong(ref.watch(audioPlayerProvider)),
+);
+final cycleRepeatProvider = Provider(
+  (ref) => CycleRepeat(ref.watch(audioPlayerProvider)),
 );
 final setShuffleProvider = Provider(
   (ref) => SetShuffle(ref.watch(audioPlayerProvider)),
@@ -171,6 +188,31 @@ final localAudioLibraryProvider = Provider<LocalAudioLibrary>(
   (ref) =>
       ref.watch(backgroundDownloadsProvider) ?? const EmptyLocalAudioLibrary(),
 );
+
+/// Caché de lo escuchado del usuario con sesión (cifrada, 300 MB).
+final listeningCacheProvider = Provider<ListeningCache>((ref) {
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return const NoListeningCache();
+  final keys = DownloadKeyStore(userId, purpose: 'cache');
+  final cache = EncryptedListeningCache(
+    root: () async => p.join(
+      (await getApplicationSupportDirectory()).path,
+      'downloads',
+      'users',
+      userId,
+      'cache',
+    ),
+    key: keys.key,
+    openDatabase: (root) => ListeningCacheDatabase(
+      driftDatabase(
+        name: 'cache',
+        native: DriftNativeOptions(databaseDirectory: () async => root),
+      ),
+    ),
+  );
+  ref.onDispose(cache.dispose);
+  return cache;
+});
 
 final storageSpaceProvider = Provider<StorageSpace>(
   (ref) =>

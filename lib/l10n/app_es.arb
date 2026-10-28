@@ -15,7 +15,6 @@
   },
   "signOut": "Cerrar sesión",
   "account": "Cuenta",
-  "search": "Buscar",
   "playSong": "Reproducir {title}",
   "@playSong": {
     "placeholders": {
@@ -27,30 +26,27 @@
   "catalogEmpty": "Aún no hay canciones.",
   "catalogError": "No pudimos cargar las canciones.",
   "retry": "Reintentar",
-  "tabSimilar": "Similares",
-  "tabUpNext": "A continuación",
+  "catalogLoadMoreError": "No se pudieron cargar más canciones",
+  "showPlayer": "Ver reproductor",
+  "songNeedsConnection": "Sin conexión: descárgala para escucharla sin red",
+  "refresh": "Actualizar",
   "shuffle": "Aleatorio",
   "previous": "Anterior",
   "next": "Siguiente",
   "play": "Reproducir",
-  "reorder": "Reordenar",
-  "similarEmpty": "No hay canciones similares todavía.",
-  "upNextEmpty": "No hay más canciones en la cola.",
   "pause": "Pausar",
-  "showQueue": "Ver cola",
+  "repeatOff": "Repetir: desactivado",
+  "repeatAll": "Repetir todo",
+  "repeatOne": "Repetir esta canción",
   "uploadTitle": "Subir canción",
   "uploadPickFile": "Elegir archivo de audio",
   "uploadFileHint": "WAV, FLAC, MP3 o M4A · hasta 200 MB",
   "uploadSongTitle": "Título",
   "uploadGenre": "Género",
   "uploadGenreNone": "Sin género",
-  "uploadLicense": "Licencia",
-  "licenseCc0": "CC0 · Dominio público",
-  "licenseCcBy": "CC BY · Atribución",
-  "licenseCcBySa": "CC BY-SA · Atribución, compartir igual",
-  "licenseCcByNc": "CC BY-NC · Atribución, no comercial",
-  "licenseCcByNcSa": "CC BY-NC-SA · Atribución, no comercial, compartir igual",
-  "uploadRights": "Declaro que soy el autor de esta canción o tengo los derechos para publicarla con la licencia elegida.",
+  "uploadGenreSearch": "Escribe para buscar",
+  "uploadGenreNoResults": "No hay géneros con ese nombre",
+  "uploadRights": "Declaro que soy el autor de esta canción o tengo los derechos para publicarla en dominio público (CC0): cualquiera podrá escucharla, compartirla y usarla libremente.",
   "uploadSubmit": "Subir",
   "uploadProgress": "Subiendo… {percent}%",
   "@uploadProgress": {
@@ -104,6 +100,14 @@
     }
   },
   "downloadRemove": "Quitar descarga",
+  "downloadRemoveConfirm": "¿Borrar «{title}» de tus descargas? Ya no podrás escucharla sin señal.",
+  "@downloadRemoveConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "downloadRetry": "Reintentar descarga",
   "downloadQueued": "{count, plural, =0{Ya estaba descargado} =1{Descargando 1 canción (solo con Wi-Fi)} other{Descargando {count} canciones (solo con Wi-Fi)}}",
   "@downloadQueued": {

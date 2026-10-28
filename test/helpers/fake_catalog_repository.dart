@@ -1,5 +1,6 @@
 import 'package:sonify/core/result.dart';
 import 'package:sonify/features/catalog/domain/catalog_failure.dart';
+import 'package:sonify/features/catalog/domain/catalog_page.dart';
 import 'package:sonify/features/catalog/domain/catalog_repository.dart';
 import 'package:sonify/features/catalog/domain/genre.dart';
 import 'package:sonify/features/catalog/domain/song.dart';
@@ -55,17 +56,26 @@ final class FakeCatalogRepository implements CatalogRepository {
   Future<Result<List<Genre>, CatalogFailure>> getGenres() async =>
       const Ok(_genres);
 
+  /// Cursor por id (los ids del fake ya están en orden).
   @override
-  Future<Result<List<Song>, CatalogFailure>> getSongs({
+  Future<Result<CatalogPage, CatalogFailure>> getSongs({
     int? genreId,
-    int limit = 30,
-    int offset = 0,
+    int limit = catalogPageSize,
+    SongCursor? after,
   }) async {
-    final songs = _songs
+    final matching = _songs
         .where((song) => genreId == null || song.genreId == genreId)
-        .skip(offset)
-        .take(limit)
-        .toList(growable: false);
-    return Ok(songs);
+        .toList();
+    final start = after == null
+        ? 0
+        : matching.indexWhere((song) => song.id == after.id) + 1;
+    final page = matching.skip(start).take(limit).toList(growable: false);
+    final hasMore = start + page.length < matching.length;
+    return Ok(
+      CatalogPage(
+        page,
+        next: hasMore ? SongCursor(createdAt: '', id: page.last.id) : null,
+      ),
+    );
   }
 }

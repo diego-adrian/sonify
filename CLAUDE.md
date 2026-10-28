@@ -1,38 +1,73 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Sonify
 
 App de música multiplataforma, parecida a Spotify pero pensada para **artistas emergentes**: personas que recién entran al mundo musical y quieren publicar música **libre de derechos** para que otros la escuchen. Lema del diseño: *"tu ritmo son latino"*.
 
-> Estado: app Flutter (iOS + Android) con Login real (Google + Supabase), Home (`106:97`), reproductor (`just_audio` + `audio_service`: segundo plano, pantalla de bloqueo, cola, aleatorio, seek), subida de canciones a B2, transcodificador en Render y catálogo real desde Supabase (vista `catalog_songs`), con descargas offline cifradas. CDN `sonify.diegoadrian.com` (Worker de Cloudflare `sonify-media`) desplegado. Este archivo describe la visión y las decisiones acordadas; actualízalo a medida que se tomen decisiones nuevas.
+> Estado: app Flutter (iOS + Android) con login real (Google + Supabase), Home (`106:97`), reproductor (segundo plano, pantalla de bloqueo, aleatorio, repetir, seek), subida de canciones, transcodificador, catálogo real y descargas offline cifradas por usuario. Todo desplegado: Edge Functions en Supabase, CDN `sonify.diegoadrian.com` (Worker de Cloudflare) y transcodificador en Render. Este archivo describe la visión y las decisiones acordadas; actualízalo a medida que se tomen decisiones nuevas.
 
 ## Comandos
 
 ```bash
+# App Flutter (raíz)
 flutter pub get
-flutter gen-l10n                 # tras editar lib/l10n/*.arb
-dart run build_runner build      # tras editar tablas de Drift (*.g.dart)
+flutter gen-l10n                 # tras editar lib/l10n/app_es.arb (genera lib/l10n/app_localizations*.dart)
+dart run build_runner build      # tras editar tablas de Drift (download_database.g.dart)
 flutter analyze
-flutter test
+flutter test                                                     # todo
+flutter test test/features/downloads/aes_ctr_test.dart           # un archivo
+flutter test test/features/downloads --plain-name "NIST"         # tests cuyo nombre contiene el texto
 flutter run --dart-define-from-file=config/dev.json            # debug
 flutter run --profile --dart-define-from-file=config/dev.json  # medir rendimiento en iPhone real
 
-# Instalar una build release en el iPhone (`flutter install` busca el .app en una ruta equivocada en esta versión)
+# Instalar una build release en el iPhone (`flutter install` busca el .app en una ruta equivocada)
 flutter build ios --release --dart-define-from-file=config/dev.json
+xcrun devicectl device list                                    # obtener el UDID
 xcrun devicectl device install app --device <udid> build/ios/iphoneos/Runner.app   # la ruta que imprime el build
+
+# CDN (cloudflare/media-worker/) y transcodificador (transcoder/): siempre pnpm
+pnpm install && pnpm check && pnpm test
+node --test test/serial_queue.test.ts                          # un archivo de pruebas
+pnpm wrangler deploy --dry-run --outdir dist                   # media-worker: genera dist/index.js para pegar en el dashboard
+docker build --target test .                                   # transcoder: pruebas con el ffmpeg real de la imagen
+
+# Edge Functions
+deno check supabase/functions/create-upload/index.ts supabase/functions/complete-upload/index.ts
 ```
 
-- Configuración por entorno en `config/dev.json` (gitignored; plantilla en `config/dev.example.json`): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_WEB_CLIENT_ID`, `CDN_BASE_URL`. Se lee en `lib/core/config/app_config.dart`. Las configuraciones de VS Code ya la pasan.
-- Supabase: proyecto `sonify`, ref `gbpnbcpbqraojdeaaalt`, región `sa-east-1`. Migraciones en `supabase/migrations/` con el mismo nombre/versión que en el proyecto remoto: al aplicar una nueva con el MCP, guardar el archivo local con la versión que devuelve `list_migrations`.
-- Login con Google: `google_sign_in` 7 + `signInWithIdToken` con **nonce** por intento (no activar "Skip nonce check" en Supabase).
+- **Siempre pnpm** (nunca npm, yarn ni npx; `pnpm dlx` en su lugar). pnpm 11 bloquea scripts de instalación: se habilitan en `pnpm-workspace.yaml` (`allowBuilds`).
+- Configuración de la app en `config/dev.json` (gitignored; plantilla `config/dev.example.json`): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_WEB_CLIENT_ID`, `CDN_BASE_URL`. Se lee en `lib/core/config/app_config.dart`; las configuraciones de VS Code ya la pasan.
+- La firma de iOS es de una cuenta de Apple gratuita (equipo `38S96TC7W5`): el perfil dura **7 días** y hay que reinstalar para renovarlo. Bundle ID / applicationId: `app.sonify.sonify`.
+- Supabase: proyecto `sonify`, ref `gbpnbcpbqraojdeaaalt`, región `sa-east-1`. Migraciones en `supabase/migrations/` con el mismo nombre y versión que en el proyecto remoto: al aplicar una nueva con el MCP, guardar el archivo local con la versión que devuelve `list_migrations`. Las Edge Functions se despliegan con el MCP (`verify_jwt = false`, ver abajo).
+- Git: el repo usa la identidad **personal** configurada localmente (`user.email`, `commit.gpgsign=false`; la global es la del trabajo) y el remoto `git@github-personal:diego-adrian/sonify.git`. **Cada push a `main` vuelve a desplegar el transcodificador en Render.**
+- Lints: `flutter_lints` + `prefer_const_constructors` / `prefer_const_declarations`. Dart `^3.13` (parámetros con nombre privados `required this._x`, elementos null-aware `?x`, comodín `_`).
 
-- CDN de medios: Worker `sonify-media` en `cloudflare/media-worker/` (ruta `sonify.diegoadrian.com/*`). Se despliega pegando `dist/index.js` (generado con `pnpm wrangler deploy --dry-run --outdir dist`) en el editor del dashboard: no hay `wrangler login`. Secretos y variables cargados en el dashboard. Comandos dentro de esa carpeta: `pnpm install`, `pnpm check`, `pnpm test`, `pnpm wrangler deploy`. **Siempre pnpm** (nunca npm, yarn ni npx; `pnpm dlx` en su lugar).
-- Catálogo: `SupabaseCatalogRepository` lee la vista `catalog_songs` (security_invoker: aplica la RLS de `songs`; trae artista y rutas firmadas con `private.media_path`, calidad 128 por defecto) y antepone `CDN_BASE_URL`. `OfflineFallbackCatalogRepository` devuelve lo descargado si no hay red. El catálogo de prueba vive solo en `test/helpers/fake_catalog_repository.dart`.
-- Transcodificador: servicio web **Render** (plan Free, 0,1 CPU / 512 MB; repo `diego-adrian/sonify`, Root Directory `transcoder`, URL `https://sonify-z6b8.onrender.com`; Cloud Run quedó descartado por el error de facturación OR_BACR2_59 de Google) en `transcoder/`: Node 24 ejecutando TypeScript directo + ffmpeg de Debian (el ffmpeg de Homebrew no trae libwebp). Hexagonal: `domain/media_plan.ts` (keys y argumentos de ffmpeg), `application/transcode_song.ts`, `infrastructure/` (B2, PostgREST con llave secreta, ffmpeg, archivos). Comandos en `transcoder/`: `pnpm test`, `pnpm check`, y `docker build --target test .` (pruebas con el ffmpeg real de la imagen). Lo dispara el trigger `songs_request_transcode` (pg_net → `POST /transcode` con cabecera `x-transcoder-secret`) al pasar una canción a `processing`; procesa **de a una canción** (`SerialQueue`: las demás esperan con la petición abierta; una misma canción repetida no se procesa dos veces). Reintento automático: `pg_cron` `retry-stuck-transcodes` cada 10 min re-pide las que llevan > 20 min en `processing`, máximo 3 intentos (`songs.transcode_attempts`), luego `failed`. Reintento manual: `select private.request_transcode('<song_id>')`. Secretos en Vault (`transcoder_url`, `transcoder_secret`) y en Secret Manager de GCP; nunca en el chat ni el repo. `songs.cover_key` guarda el prefijo `covers/{id}` (tamaños `200` y `640`).
-- Bundle ID / applicationId: `app.sonify.sonify`.
-- Fuente Poppins empaquetada en `assets/fonts/poppins/` (no `google_fonts`, que descarga en tiempo de ejecución: rompe offline y gasta red).
-- Estado e inyección de dependencias: `flutter_riverpod`; el composition root está en `lib/core/di/providers.dart`.
-- Subida: `features/upload` (formulario → `UploadSong` → `SupabaseUploadRepository`: Edge Function `create-upload` → PUT directo a B2 con `background_downloader` → `complete-upload`). Edge Functions en `supabase/functions/` (código compartido en `_shared/`), desplegadas con `verify_jwt = false`: el proyecto usa llaves de firma asimétricas y cada función verifica el JWT en código con `auth.getClaims`. Se suben audio original y portada original opcional (`originals/{user_id}/{song_id}.{ext}` y `…/{song_id}-cover.{ext}`, JPG/PNG/WebP, mín. 640 px de lado (como Spotify; se recorta al centro), ≤ 10 MB) más descripción (≤ 500). Secretos de las funciones: `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET`, `B2_ENDPOINT` (los pone el usuario en el dashboard; nunca pasan por el chat ni el repo). Verificar con `deno check` antes de desplegar.
-- Descargas offline: `features/downloads`. `BackgroundDownloadRepository` implementa a la vez `DownloadRepository` y `LocalAudioLibrary` (puerto del reproductor): `AudioServicePlayer` pregunta por cada canción y, si está descargada, la reproduce con un `StreamAudioSource` que descifra al vuelo por rangos de 256 KB, cada uno en un isolate. AES-256-CTR en Dart puro (`pointycastle`, ~26 MB/s en AOT; si al medir en el iPhone pesa en batería, pasar a CommonCrypto / javax.crypto por canal nativo). Canal nativo propio `app.sonify.sonify/storage` (`AppDelegate.swift`, `MainActivity.kt`): espacio libre y `isExcludedFromBackup`. Android: `allowBackup=false` + `data_extraction_rules.xml`. La clave va en Keychain con `first_unlock_this_device` (sin iCloud, legible con el teléfono bloqueado). **Descargas por usuario**: carpeta `downloads/users/{userId}/` con su propia base Drift, su clave (`sonify.downloads.key.v1.{userId}`) y su grupo de `background_downloader`. Al cerrar sesión se conservan (ocultas) y se pausa lo que estaba bajando (`suspend`; se retoma al volver a entrar); otra cuenta en el mismo teléfono no las ve ni puede descifrarlas. UI: mantener presionada una canción (descargar / toda la lista / quitar) y pantalla Descargas desde la barra superior.
-- Reproductor: `features/player`. El puerto `AudioPlayerPort` lo implementa `AudioServicePlayer` sobre `SonifyAudioHandler` (`audio_service` + `just_audio`), creado en `main` con `AudioService.init` e inyectado con override de `audioHandlerProvider`. La posición va en un stream aparte a ~1 Hz y solo se escucha con la app en primer plano (`appResumedProvider`); `PlaybackProgressBar` interpola con un reloj local y repinta solo al avanzar un píxel físico (movimiento continuo con pocas actualizaciones). En tests se usa `test/helpers/fake_audio_player.dart`.
+## Mapa del sistema
+
+```
+App Flutter ──JWT──► Edge Function create-upload ──► fila songs (uploading) + URL prefirmada
+     │ PUT directo (background_downloader)
+     ▼
+B2 originals/ ──► complete-upload ──► songs.status = processing
+                                          │ trigger songs_request_transcode (pg_net)
+                                          ▼
+                        Render: transcoder (ffmpeg) ──► B2 audio/ + covers/ ──► song_files, status = ready
+App ◄── vista catalog_songs (RLS + rutas firmadas por private.media_path)
+App ──URL firmada──► Worker sonify.diegoadrian.com ──caché──► B2 (solo audio/ y covers/)
+```
+
+- **Composition root**: `lib/core/di/providers.dart` (Riverpod) es el único lugar que conecta puertos con adaptadores. Los tests reemplazan adaptadores con `overrideWithValue`; los fakes están en `test/helpers/` (`FakeAudioPlayer`, `FakeDownloadRepository`, `FakeCatalogRepository`) y la Home se prueba de punta a punta en `test/features/auth/presentation/login_flow_test.dart`.
+- **Login** (`features/auth`): `google_sign_in` 7 + `signInWithIdToken` con **nonce** por intento (no activar "Skip nonce check" en Supabase). `_AuthGate` en `lib/app.dart` decide Login u Home según `authStateProvider`.
+- **Subida** (`features/upload`): formulario → `UploadSong` → `SupabaseUploadRepository`: `create-upload` → PUT directo a B2 de la portada (opcional) y el audio con `background_downloader` → `complete-upload`. Validación en la app y otra vez en las funciones (`supabase/functions/_shared/upload_rules.ts`): WAV/FLAC/MP3/M4A/AAC hasta 200 MB, 20 subidas por usuario al día, portada JPG/PNG/WebP de mín. 640 px y ≤ 10 MB, descripción ≤ 500. `background_downloader` fuerza `Content-Type` = `mimeType`: se pasa explícito para que coincida con la firma de la URL.
+- **Edge Functions** (`supabase/functions/`, código compartido en `_shared/`): desplegadas con `verify_jwt = false` porque el proyecto usa llaves de firma asimétricas; cada función verifica el JWT en código con `auth.getClaims`. Secretos `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET`, `B2_ENDPOINT` (los carga el usuario en el dashboard).
+- **Transcodificador** (`transcoder/`): servicio web en **Render** (plan Free, 0,1 CPU / 512 MB, Root Directory `transcoder`, `https://sonify-z6b8.onrender.com`; Cloud Run quedó descartado por el error de facturación OR_BACR2_59 de Google). Node 24 ejecuta TypeScript directo (imports con `.ts`, sin build) + ffmpeg de Debian (el de Homebrew no trae libwebp, por eso esa prueba se salta en macOS). `domain/media_plan.ts` define keys y argumentos de ffmpeg; `application/transcode_song.ts` el pipeline; `infrastructure/` B2, PostgREST con llave secreta, ffmpeg y archivos. Procesa **de a una** (`SerialQueue`: las demás esperan con la petición abierta; una canción repetida no se procesa dos veces). Reintento: `pg_cron` `retry-stuck-transcodes` cada 10 min re-pide las que llevan > 20 min en `processing`, máximo 3 intentos (`songs.transcode_attempts`), luego `failed`. Reintento manual: `select private.request_transcode('<song_id>')`. Variables de entorno en el panel de Render; URL y secreto compartido en Vault (`transcoder_url`, `transcoder_secret`).
+- **Catálogo** (`features/catalog`): `SupabaseCatalogRepository` lee la vista `catalog_songs` (security_invoker: aplica la RLS de `songs`; trae artista y rutas firmadas, calidad 128 por defecto) y antepone `CDN_BASE_URL`. `OfflineFallbackCatalogRepository` devuelve lo descargado si no hay red o si el catálogo no responde en 12 s (con señal débil la petición se cuelga en vez de fallar). **Offline primero**: la Home lista `catalogSongsProvider`, que muestra lo descargado al instante y lo reemplaza por el catálogo cuando llega. Sin red (`isOnlineProvider`, puerto `NetworkStatus` en `lib/core/network/` con `connectivity_plus`: eventos del sistema, sin polling) la lista se mantiene pero las no descargadas se ven atenuadas y la cola solo usa lo descargado (`playableSongsProvider`); al volver la red se recarga el catálogo. `connectivity_plus` solo ve la interfaz de red: con señal débil dice "en línea" y ahí actúa el timeout. **Paginación por cursor** de a `catalogPageSize` = 30 (`created_at desc, id desc`, índice `songs_catalog_keyset_idx`; se pide una de más para saber si hay otra página): `songsProvider` (`SongsFeed`, `AsyncNotifier`) pide la siguiente cuando faltan ~10 filas para el final; si una página falla se conserva la lista y solo se reintenta con el botón (sin red, cada scroll gastaría una petición). Sin red la primera página es todo lo descargado y no se pagina. `songsProvider` se recarga desde la primera página al deslizar hacia abajo en la Home, al volver a la app tras 10 min o al recuperar la red (nada de polling).
+- **Reproductor** (`features/player`): el puerto `AudioPlayerPort` lo implementa `AudioServicePlayer` sobre `SonifyAudioHandler` (`audio_service` + `just_audio`), creado en `main` con `AudioService.init` e inyectado con override de `audioHandlerProvider`. Antes de cargar cada canción pregunta a `LocalAudioLibrary` si está descargada. La posición va en un stream aparte a ~1 Hz, solo con la app en primer plano (`appResumedProvider`); `PlaybackProgressBar` interpola con un reloj local y repinta solo al avanzar un píxel físico. Repetir: `PlaybackRepeat` (off → all → one; no se llama `RepeatMode` porque choca con Flutter). Sin repetir, al terminar la última de la cola vuelve a la primera (del orden aleatorio si está activo) en pausa, como Spotify. **Recuperación de red** (`PlaybackRecovery`): `just_audio` no reintenta y tras un error (p. ej. cambiar de datos a Wi-Fi) queda sin pista y `play()` no hace nada; el handler pausa, recarga la pista en el mismo punto (reintentos solos a los 2/4/8 s si estaba sonando, si no al pulsar play) y trata como fallo quedarse > 20 s cargando mientras debería sonar. `click` (doble toque del Apple Watch, auriculares) decide con `player.playing`, y `play()` del handler no espera a que acabe la canción.
+- **Descargas** (`features/downloads`): `BackgroundDownloadRepository` implementa `DownloadRepository` y `LocalAudioLibrary`. Descarga a `tmp/`, cifra con AES-256-CTR en un isolate (y calcula el SHA-256 en la misma pasada), borra el temporal y registra en Drift. Reproduce con un `StreamAudioSource` que descifra por rangos de 256 KB, cada uno en un isolate (AES en Dart puro con `pointycastle`, ~26 MB/s en AOT; si pesa en batería, pasar a CommonCrypto / javax.crypto por canal nativo). **Por usuario**: `downloads/users/{userId}/` con su base Drift, su clave en Keychain (`sonify.downloads.key.v1.{userId}`, `first_unlock_this_device`: sin iCloud y legible con el teléfono bloqueado) y su grupo de `background_downloader`; el repositorio se recrea al cambiar la sesión. Al cerrar sesión se conservan (ocultas) y se pausa lo que estaba bajando (`suspend`). Canal nativo propio `app.sonify.sonify/storage` (`AppDelegate.swift`, `MainActivity.kt`): espacio libre e `isExcludedFromBackup`. Android: `allowBackup=false` + `data_extraction_rules.xml`. UI: botón de descarga en cada fila, mantener presionada una canción y pantalla Descargas (borrar con la papelera en `primary` o deslizando la fila a la izquierda; las dos formas piden confirmación).
+- **CDN** (`cloudflare/media-worker/`): Worker `sonify-media` en la ruta `sonify.diegoadrian.com/*`. Se despliega pegando `dist/index.js` en el editor del dashboard (no hay `wrangler login`); variables y secretos en el dashboard. Detalles en "Arquitectura de archivos".
+- **Fuente**: Poppins (principal) y Figtree (secundaria) empaquetadas en `assets/fonts/` (no `google_fonts`, que descarga en tiempo de ejecución: rompe offline y gasta red).
 
 ## Idea del producto
 
@@ -47,6 +82,8 @@ xcrun devicectl device install app --device <udid> build/ios/iphoneos/Runner.app
 |---|---|---|
 | App | **Flutter** | Un solo código para iOS, Android (y luego web/desktop) |
 | Autenticación | **Supabase Auth** | Login con Google (es el único botón del diseño de Login) |
+| Backend | **Supabase Edge Functions** (Deno), `pg_net`, `pg_cron`, Vault | Subida, disparo y reintento del transcodificador, secretos de firma |
+| Transcodificación | **Render** (Docker: Node 24 + ffmpeg) | AAC 96/128/256 a −14 LUFS y portadas WebP |
 | Base de datos | **Supabase Postgres** | Metadatos: perfiles (artistas), canciones, géneros, playlists, likes |
 | Almacenamiento | **Backblaze B2** | Archivos de audio y portadas |
 | CDN / dominio | **Cloudflare** | `sonify.diegoadrian.com`: Worker que sirve los archivos de B2 con caché |
@@ -72,7 +109,7 @@ Reglas:
 - Los widgets nunca llaman a Supabase ni a la red directamente: llaman a un caso de uso, que usa un puerto.
 - Los adaptadores convierten DTOs/filas a entidades de dominio; los DTOs no salen de `infrastructure`.
 - La inyección de dependencias (en `core/`) es el único lugar que conecta puertos con adaptadores concretos.
-- **Offline encaja aquí**: p. ej. el puerto `SongRepository` tiene un adaptador remoto (Supabase + CDN) y uno local (Drift/Isar + archivos descargados); un repositorio compuesto decide cuál usar según la conectividad, sin que el dominio ni la UI lo sepan.
+- **Offline encaja aquí**: `OfflineFallbackCatalogRepository` envuelve al catálogo remoto y, sin red, devuelve lo descargado; el reproductor pregunta a `LocalAudioLibrary` antes de usar la URL remota. Ni el dominio ni la UI saben de dónde viene cada canción.
 - Los casos de uso se prueban con tests unitarios usando fakes de los puertos, sin Flutter ni red.
 - Mismo principio en Edge Functions / Worker: lógica en funciones puras, y el acceso a B2, Supabase o Cloudflare detrás de interfaces.
 
@@ -94,14 +131,15 @@ Reglas:
 | Tabla | Campos clave | Notas |
 |---|---|---|
 | `profiles` | `id` (= `auth.users.id`, PK, FK on delete cascade), `display_name`, `slug` unique, `bio`, `avatar_url`, `created_at` | **El perfil es el artista**: todo usuario es artista de sí mismo, sin tabla ni rol aparte. Creado por trigger |
-| `genres` | `id`, `slug`, `name` | Baladas, Rancheras, Cumbia, Románticos… |
-| `songs` | `id` (uuid), `owner_id` → `profiles.id` (el artista), `title`, `genre_id`, `duration_ms`, `status`, `visibility`, `license`, `rights_accepted_at`, `original_key`, `original_size`, `cover_key`, `created_at`, `deleted_at` | `owner_id` es a la vez el artista y la clave de las políticas RLS |
+| `genres` | `id`, `slug`, `name`, `sort_order` | 76 géneros (migración `genres_catalog`): latino y tropical, andino/folclore (Morenada, Caporales, Saya…), regional mexicano, Brasil/Caribe, internacional y por uso. La app los ordena por `sort_order`; se agregan o renombran por `slug` (`on conflict`), nunca se borran los que tienen canciones |
+| `songs` | `id` (uuid), `owner_id` → `profiles.id` (el artista), `title`, `description`, `genre_id`, `duration_ms`, `status`, `visibility`, `license`, `rights_accepted_at`, `original_key`, `original_size`, `cover_original_key`, `cover_key` (prefijo `covers/{id}`), `transcode_attempts`, `transcode_requested_at`, `created_at`, `deleted_at` | `owner_id` es a la vez el artista y la clave de las políticas RLS |
 | `song_files` | PK (`song_id`, `quality`), `key`, `size_bytes`, `sha256` | Una fila por calidad (96/128/256) generada por el transcodificador |
+| `catalog_songs` (vista) | canción lista + `artist_name` + rutas firmadas de portada y audio 128 + tamaño y SHA-256 | Lo que lee la app; `security_invoker` |
 | `likes`, `playlists`, `playlist_songs` | `user_id` → `profiles.id` | Más adelante |
 
 - `status`: `uploading` → `processing` → `ready` | `failed`; `removed` para moderación.
 - `visibility`: `public` | `private` (borrador visible solo para el dueño).
-- `license`: licencia libre declarada por el artista (CC0, CC BY, CC BY-SA…). Al subir, el usuario **acepta una declaración de que tiene los derechos**; se guarda en `rights_accepted_at`.
+- `license`: licencia libre declarada por el artista (CC0, CC BY, CC BY-SA…). **Hoy el formulario no muestra el selector y siempre envía CC0** (dominio público); el enum y la validación del backend aceptan las demás para cuando se vuelva a ofrecer. Al subir, el usuario **acepta una declaración de que tiene los derechos**; se guarda en `rights_accepted_at`.
 - Índices en `songs (status, visibility, genre_id, created_at)` y `songs (owner_id)`.
 - Todo cambio de esquema como migración (vía MCP de Supabase o `supabase/migrations/`).
 
@@ -111,8 +149,8 @@ Reglas:
 - `songs`:
   - `select`: (`status = 'ready'` y `visibility = 'public'` y `deleted_at is null`) **o** `owner_id = auth.uid()`.
   - `insert`: **no desde la app**; solo la Edge Function con service role (ella fija `owner_id`, `id` y keys).
-  - `update`: el dueño solo puede cambiar metadatos (`title`, `genre_id`, `visibility`, `cover_key`); `status`, keys, `owner_id` y tamaños solo los cambia el backend (trigger que lo bloquee o columnas revocadas).
-  - `delete`: soft delete (`deleted_at`) por el dueño; un job borra los archivos de B2.
+  - `update`: el dueño solo puede cambiar metadatos (`title`, `description`, `genre_id`, `visibility`), con grants por columna; `status`, keys, `owner_id` y tamaños solo los cambia el backend.
+  - `delete`: soft delete con la RPC `soft_delete_song`. Pendiente: un job que borre los archivos de B2.
 - `song_files`: lectura si la canción es legible; escritura solo backend.
 
 ### Flujo de subida de una canción
@@ -121,9 +159,9 @@ Reglas:
 2. La función obtiene `user_id` del JWT, valida (tipos permitidos WAV/FLAC/MP3/M4A, tamaño máximo del original, cuota por usuario), inserta la canción con `status = 'uploading'` y **genera ella misma la key**: `originals/{user_id}/{song_id}.{ext}`.
 3. Devuelve una **URL prefirmada de subida** (API S3 de B2) válida unos minutos y solo para esa key.
 4. La app sube el archivo directo a B2 (con `background_downloader`, que también hace uploads en segundo plano y reanudables).
-5. Al terminar, la app llama a **`complete-upload`** (o lo detecta una notificación de evento de B2): se verifica que el objeto existe y pesa lo declarado → `status = 'processing'` → se encola la transcodificación.
+5. Al terminar, la app llama a **`complete-upload`**: verifica que el objeto existe y pesa lo declarado → `status = 'processing'` → el trigger avisa al transcodificador.
 6. El transcodificador genera `audio/{song_id}/…` y `covers/{song_id}/…`, rellena `song_files` → `status = 'ready'`.
-7. Canciones que se quedan en `uploading` más de X horas se limpian (fila y objeto huérfano).
+7. Pendiente: limpiar las canciones que se quedan en `uploading` más de 24 h (fila y objeto huérfano).
 
 - Cuotas por usuario (nº de subidas por día, tamaño máximo) para evitar abuso y costos.
 - Una canción `private` no se puede descargar aunque alguien conozca la ruta: el Worker solo sirve **URLs firmadas** que Postgres emite para lo que RLS deja leer al usuario (ver CDN).
@@ -164,7 +202,7 @@ Cifrar no reduce el tamaño; lo reduce el códec. Todo el audio se sirve en **AA
 
 (Referencia: un MP3 a 320 kbps pesa ~12 MB → 1.2 GB por 100 canciones.)
 
-- Un **worker de transcodificación con ffmpeg** en contenedor (Cloudflare Containers, Fly.io, Cloud Run o un VPS) se dispara al subir un original (cola: Cloudflare Queues o tabla/`pgmq` en Supabase). No corre en Edge Functions ni en Workers.
+- Corre en un contenedor con ffmpeg (hoy Render; ver "Mapa del sistema"), nunca en Edge Functions ni en Workers. Lo dispara `pg_net` desde Postgres y lo reintenta `pg_cron`; se puede mover a Cloud Run o Cloudflare Containers sin cambiar el código.
 - Pasos: leer de `originals/` → normalizar volumen a **−14 LUFS** (las mezclas de artistas emergentes son muy desiguales) → limpiar metadatos → generar las 3 calidades → generar portadas WebP → calcular **SHA-256** y duración de cada archivo → guardar keys, tamaños y hashes en Postgres → marcar la canción como `ready`.
 - Sigue la arquitectura hexagonal: el pipeline es un caso de uso; ffmpeg, B2 y Supabase son adaptadores.
 
@@ -180,8 +218,8 @@ Objetivo: descargar muchas canciones ocupando lo mínimo y con el mejor rendimie
 - Portadas offline solo en miniatura WebP.
 - Dos zonas separadas:
   - **Descargas**: solo las borra el usuario ("Borrar todo" o una a una). Se conservan al cerrar sesión, separadas por usuario.
-  - **Caché de streaming**: tamaño máximo configurable, se purga por LRU.
-- Pantalla de almacenamiento: espacio usado por Sonify, por calidad y por playlist; botón para borrar todo.
+  - **Caché de lo escuchado** (`EncryptedListeningCache`, puerto `ListeningCache`): lo que suena por streaming se baja entero de una vez con `LockCachingAudioSource` a `cache/tmp/` (en claro solo mientras es la pista actual; se borra al cambiar, al parar y al abrir la app) y, si se escuchó ≥ 30 s o hasta el final, se cifra con **clave propia** (`sonify.cache.key.v1.{userId}`, así "Borrar todo" en Descargas no la invalida) en `downloads/users/{userId}/cache/` con su base Drift (`cache.sqlite`). Tope 300 MB: al guardar una nueva, si se pasa, se borra lo que hace más tiempo que no suena (`lastPlayedAt`), nunca la cola actual; sin timers. Orden de fuentes en el reproductor: descargada → caché → streaming. Sin red, lo cacheado suena, no se atenúa y aparece en la lista offline. Pendiente: quitar de la caché las canciones que el artista borra o hace privadas, y "Vaciar caché" en la pantalla de almacenamiento.
+- Pendiente: pantalla de almacenamiento (espacio usado por calidad y por playlist). Hoy la pantalla Descargas muestra el total y "Borrar todo".
 
 ### Cifrado de archivos descargados
 
@@ -190,25 +228,25 @@ Objetivo: descargar muchas canciones ocupando lo mínimo y con el mejor rendimie
 - Se descifra **al vuelo durante la reproducción** con un `StreamAudioSource` de `just_audio`: CTR permite saltar a cualquier posición (seek) sin descifrar el archivo completo y sin escribir nunca el audio en claro a disco.
 - Cifrar en streaming mientras se descarga (o justo al terminar, borrando el temporal): el archivo en claro no debe quedar en el dispositivo.
 - Clave y descargas **por usuario**: al cerrar sesión se conservan (ocultas, sin poder descifrarse desde otra cuenta) y vuelven al entrar con la misma cuenta. Al **borrar la cuenta** sí se borran su carpeta y su clave.
-- Validación de licencia offline: revalidar con el servidor como máximo cada **30 días** (pensado para uso prolongado sin señal en sótanos/locales).
+- Pendiente: revalidar con el servidor como máximo cada **30 días** (pensado para uso prolongado sin señal en sótanos/locales).
 - Sin DRM pesado (Widevine/FairPlay): innecesario para música libre de derechos.
 
 ### Descargas eficientes (p. ej. 100 canciones)
 
 - **`background_downloader`**: usa `URLSession` en segundo plano (iOS) y `WorkManager` (Android); sigue descargando con la app cerrada o el teléfono bloqueado.
 - Cola con **3–4 descargas concurrentes**, reintentos con backoff y **reanudación por HTTP Range** (si se corta en la canción 63, sigue desde ahí y desde el byte donde quedó).
-- **Solo Wi-Fi por defecto** (configurable).
+- **Solo Wi-Fi por defecto** (el ajuste para cambiarlo está pendiente).
 - **Verificar espacio libre antes** de un lote ("necesitas 480 MB, tienes 300 MB") en lugar de fallar a mitad.
 - **Verificar SHA-256** tras cada descarga; si no coincide, se re-descarga.
-- Descarga por playlist/álbum con progreso agregado; las canciones ya descargadas en otra playlist no se duplican (se referencian por `song_id` + calidad).
+- Pendiente: descarga por playlist/álbum con progreso agregado; las canciones ya descargadas no se duplican (se referencian por `song_id`).
 - Descargas directas desde el CDN de Cloudflare (caché en el edge, sin egreso de B2).
 
 ### Arranque y sincronización
 
 - La app arranca y muestra la biblioteca descargada sin conexión; la sesión de Supabase en caché no debe bloquear el uso offline.
 - Reproducción en segundo plano y controles en pantalla de bloqueo: `just_audio` + `audio_service`.
-- Likes, playlists y reproducciones hechos offline van a una **cola de sincronización** en Drift que se vacía al volver la conexión (`connectivity_plus`).
-- En hexagonal: el puerto `SongRepository` / `PlaybackSource` tiene adaptador remoto (CDN) y local (Drift + archivos cifrados); la decisión online/offline vive en infraestructura, no en el dominio ni en la UI.
+- Pendiente: likes, playlists y reproducciones hechos offline van a una **cola de sincronización** en Drift que se vacía al volver la conexión (`isOnlineProvider`, ya con `connectivity_plus`).
+- En hexagonal, la decisión online/offline vive en infraestructura (`OfflineFallbackCatalogRepository`, `LocalAudioLibrary`), no en el dominio ni en la UI.
 
 ## CarPlay y Android Auto
 
@@ -236,13 +274,14 @@ Archivo: https://www.figma.com/design/N1HN0LGiqPOE4msh9jM5Tb/Clon-de-spotify (fi
 
 ### Home V1 Oficial (`106:97`) — diseño de la Home
 
-La Home es esta vista, con la fuente (Poppins) y el color (`#DB4437`) del Login. Arriba se añadió una barra mínima (avatar → cuenta/cerrar sesión, saludo, búsqueda) que no está en Figma. Las filas de canciones y el reproductor siguen este diseño, no el de `List` / Home V1:
+La Home es esta vista, con la fuente (Poppins) y el color (`#DB4437`) del Login. Arriba se añadió una barra mínima (avatar → cuenta/cerrar sesión, saludo, subir canción, descargas) que no está en Figma; la búsqueda se quitó a pedido del usuario. Las filas de canciones y el reproductor siguen este diseño, no el de `List` / Home V1:
 
-- **Reproductor**: portada grande circular con sombra suave, título en negrita ("Canción - By Artista"), artistas en gris debajo.
+- **Reproductor**: portada grande circular con sombra suave, título ("Canción - By Artista"), artistas en gris debajo. En la imagen del diseño el título se ve en negrita, pero la regla es Poppins 300/400 (ver Tipografía).
 - **Barra de progreso**: tiempo actual a la izquierda, duración a la derecha, relleno `primary` sobre pista `primaryContainer`.
-- **Controles**: fila de botones circulares `surfaceVariant` (aleatorio, anterior, siguiente, cola) con el botón **play** central más grande, en `primary` y con sombra del mismo color.
-- **Pestañas**: "Similares" y "A continuación" (en el diseño, "Similar" / "Up Next"), con ícono, y subrayado `primary` en la activa.
-- **Fila de pista**: portada cuadrada redondeada, título en negrita (truncado con "…"), artistas debajo (truncados), botón circular con borde `outline` a la derecha: ▷ en `primary` para reproducir, ☰ para la cola. Separador fino entre filas.
+- **Controles**: fila de botones circulares `surfaceVariant` (aleatorio, anterior, siguiente, repetir) con el botón **play** central más grande, en `primary` y con sombra del mismo color.
+- **Pestañas** "Similar" / "Up Next" del diseño: **quitadas** a pedido del usuario; la Home lista todo el catálogo. El botón "ver cola" se reemplazó por **repetir** (desactivado → todo → una).
+- **Mini-reproductor** (no está en Figma): al bajar por la lista y tapar el reproductor grande, aparece pegado arriba una barra compacta `surfaceVariant` (portada, título, artista, play/pausa en `primary`, siguiente); tocarla vuelve arriba. Sin barra de progreso (no suma otro reloj). `MiniPlayerBar` en `home/presentation/widgets/`.
+- **Fila de pista**: portada cuadrada redondeada, título (truncado con "…"), artistas debajo (truncados), botón circular con borde `outline` a la derecha: ▷ en `primary` para reproducir, y a su izquierda el de descarga. Separador fino entre filas.
 
 ### Sistema visual
 
@@ -265,7 +304,11 @@ La app soporta **modo claro y modo oscuro** (sigue al sistema por defecto, con o
 - Las sombras de color del botón play usan `primary` con opacidad; en oscuro bajarla o quitarla.
 - Todos los colores salen de un `ColorScheme` claro y otro oscuro en un `ThemeData` central; ningún widget lleva colores escritos a mano.
 
-**Tipografía: Poppins Light (300) y Regular (400) en toda la app, como el Login.** Nunca pesos mayores. La escala está en `lib/core/theme/app_typography.dart` (`brand`, `headline`, `title`, `body`, `bodySmall`, `caption`) y el `textTheme` de Material también se baja a Light/Regular. Solo se empaquetan esos dos pesos.
+**Tipografía: Poppins Light (300) y Regular (400) en toda la app, como el Login.** Nunca pesos mayores. La escala está en `lib/core/theme/app_typography.dart` (`brand`, `headline`, `title`, `trackTitle`/`trackSubtitle` para las filas de canciones, `body`, `bodySmall`, `caption`) y el `textTheme` de Material también se baja a Light/Regular. Solo se empaquetan esos dos pesos.
+
+**Fuente secundaria: Figtree** (OFL), alternativa libre a Spotify Mix/Circular, que es privada y no se puede empaquetar. Mismos pesos 300/400. Uso: `AppTypography.secondary(AppTypography.title)`; las familias están en `AppTypography.fontFamily` / `secondaryFontFamily`.
+
+**Medidas** en `lib/core/theme/app_sizes.dart` (`AppSizes`), miniaturas como Spotify: filas de canciones 48 px (fila de 64 px, botones redondos de 44 px), mini-reproductor 40 px, listas de biblioteca 64 px; radio de portada 6 px.
 
 Notas:
 - El frame `106:97` es una **imagen pegada** (captura), no capas editables, así que `get_design_context` no devuelve valores exactos; las medidas de esa vista se toman de la imagen.
@@ -298,14 +341,18 @@ La app **no debe calentar el dispositivo, ni gastar batería de más, ni saturar
   - **Animaciones**: ninguna en bucle (p. ej. portada girando) cuando la app no está visible o con la pantalla apagada; respetar "reducir movimiento".
   - **Pantalla**: el modo oscuro ahorra batería en iPhones OLED; evaluar negro puro (`#000000`) para el fondo oscuro.
   - **Medir**: reproducción de 1 h con pantalla apagada (offline y streaming) comparando con Apple Music/Spotify; Xcode Organizer → Energy, Instruments (Energy Log, Time Profiler), MetricKit; en Android, Energy Profiler y Battery Historian.
-- **Red**: paginar el catálogo, caché HTTP, descargas pesadas solo en Wi-Fi por defecto.
+- **Red**: catálogo paginado de a 30 (hecho), caché HTTP (pendiente), descargas pesadas solo en Wi-Fi por defecto.
 - **UI**: 60/120 fps sin jank; widgets `const`, rebuilds mínimos (estado granular).
 - **Cómo se mide**: probar siempre en **modo profile en un iPhone real** (`flutter run --profile`), nunca juzgar rendimiento en debug ni en simulador. Herramientas: Flutter DevTools (Performance, Memory, CPU profiler) e Instruments de Xcode (Time Profiler, Allocations, Leaks, Energy Log).
 - Presupuestos orientativos a vigilar: arranque en frío < 2 s, RAM estable sin crecer al navegar o reproducir largo rato, sin fugas tras abrir/cerrar pantallas repetidamente.
 
+## Costos
+
+Qué vigilar en cada servicio (B2, Cloudflare, Supabase, Render, tiendas), topes y alertas a configurar y revisión mensual: [`docs/costos.md`](docs/costos.md). Mantenerlo al día cuando se agregue un servicio o cambie un plan.
+
 ## Convenciones
 
-- Código y nombres en inglés; textos visibles al usuario en español (preparar i18n desde el inicio).
+- Código y nombres en inglés; textos visibles al usuario en español, siempre en `lib/l10n/app_es.arb` (nunca escritos en los widgets).
 - Secretos (keys de Supabase service role, B2, Cloudflare) solo en variables de entorno / secretos del backend; en la app solo va la `anon key` de Supabase.
 - Activar Row Level Security en todas las tablas de Supabase.
 

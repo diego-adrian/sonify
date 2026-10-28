@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/result.dart';
 import '../domain/catalog_failure.dart';
+import '../domain/catalog_page.dart';
 import '../domain/catalog_repository.dart';
 import '../domain/genre.dart';
 import '../domain/song.dart';
@@ -20,7 +21,7 @@ final class SupabaseCatalogRepository implements CatalogRepository {
   final String _cdn;
 
   static const _columns =
-      'id,title,artist_name,genre_id,duration_ms,cover_path,'
+      'id,created_at,title,artist_name,genre_id,duration_ms,cover_path,'
       'cover_large_path,audio_path,audio_size_bytes,audio_sha256';
 
   @override
@@ -28,7 +29,8 @@ final class SupabaseCatalogRepository implements CatalogRepository {
     final rows = await _client
         .from('genres')
         .select('id,slug,name')
-        .order('id');
+        .order('sort_order')
+        .order('name');
     return [
       for (final row in rows)
         Genre(
@@ -40,17 +42,37 @@ final class SupabaseCatalogRepository implements CatalogRepository {
   });
 
   @override
-  Future<Result<List<Song>, CatalogFailure>> getSongs({
+  Future<Result<CatalogPage, CatalogFailure>> getSongs({
     int? genreId,
-    int limit = 30,
-    int offset = 0,
+    int limit = catalogPageSize,
+    SongCursor? after,
   }) => _guard(() async {
     var query = _client.from('catalog_songs').select(_columns);
     if (genreId != null) query = query.eq('genre_id', genreId);
+    if (after != null) {
+      // Lo que va después de la última recibida, en el mismo orden
+      // (created_at desc, id desc). Comillas: la fecha lleva ':' y '.'.
+      final at = '"${after.createdAt}"';
+      query = query.or(
+        'created_at.lt.$at,and(created_at.eq.$at,id.lt.${after.id})',
+      );
+    }
+    // Una de más para saber si hay otra página sin pedirla.
     final rows = await query
         .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
-    return [for (final row in rows) _song(row)];
+        .order('id', ascending: false)
+        .limit(limit + 1);
+    final page = rows.take(limit).toList();
+    final last = page.isEmpty ? null : page.last;
+    return CatalogPage(
+      [for (final row in page) _song(row)],
+      next: rows.length > limit && last != null
+          ? SongCursor(
+              createdAt: last['created_at'] as String,
+              id: last['id'] as String,
+            )
+          : null,
+    );
   });
 
   Song _song(Map<String, dynamic> row) => Song(

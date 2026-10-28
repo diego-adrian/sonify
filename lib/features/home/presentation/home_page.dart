@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/theme/app_sizes.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/domain/app_user.dart';
 import '../../catalog/domain/song.dart';
@@ -9,12 +11,12 @@ import '../../catalog/presentation/catalog_providers.dart';
 import '../../catalog/presentation/widgets/song_tile.dart';
 import '../../downloads/presentation/download_actions.dart';
 import '../../downloads/presentation/downloads_page.dart';
-import '../../downloads/presentation/downloads_providers.dart';
+import '../../downloads/presentation/widgets/song_download_button.dart';
 import '../../player/domain/playback_snapshot.dart';
 import '../../player/presentation/player_providers.dart';
 import '../../upload/presentation/upload_page.dart';
 import 'home_providers.dart';
-import 'widgets/home_tabs.dart';
+import 'widgets/mini_player_bar.dart';
 import 'widgets/now_playing_header.dart';
 import 'widgets/user_avatar.dart';
 import '../../../core/theme/app_typography.dart';
@@ -43,7 +45,13 @@ class HomePage extends ConsumerWidget {
         ),
       );
     } else if (songs.hasValue) {
-      body = _Message(text: l10n.catalogEmpty);
+      body = _Message(
+        text: l10n.catalogEmpty,
+        action: TextButton(
+          onPressed: () => ref.invalidate(songsProvider),
+          child: Text(l10n.refresh),
+        ),
+      );
     } else {
       body = const Center(child: CircularProgressIndicator());
     }
@@ -52,24 +60,87 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-class _HomeContent extends ConsumerWidget {
+class _HomeContent extends ConsumerStatefulWidget {
   const _HomeContent({required this.user, required this.current});
 
   final AppUser user;
   final Song current;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends ConsumerState<_HomeContent> {
+  final _scroll = ScrollController();
+  final _headerKey = GlobalKey();
+
+  /// `true` cuando el reproductor grande quedó tapado al bajar por la lista.
+  /// Solo cambia al cruzar el umbral: hacer scroll no reconstruye la Home.
+  final _showMini = ValueNotifier<bool>(false);
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll
+      ..addListener(_updateMini)
+      ..addListener(_loadMoreNearEnd);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _showMini.dispose();
+    super.dispose();
+  }
+
+  /// Pide la siguiente página cuando faltan ~10 filas para el final, así al
+  /// bajar no se llega a ver la espera.
+  void _loadMoreNearEnd() {
+    if (_scroll.position.extentAfter < AppSizes.trackRowHeight * 10) {
+      ref.read(songsProvider.notifier).loadMore();
+    }
+  }
+
+  void _updateMini() {
+    final header = _headerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (header == null || !header.attached) return;
+    // Posición del reproductor grande dentro de la lista (no en pantalla: la
+    // de pantalla no se actualiza cuando sale del área visible).
+    final top = RenderAbstractViewport.of(header)
+        .getOffsetToReveal(header, 0)
+        .offset;
+    final bottom = top + header.size.height;
+    _showMini.value = _scroll.offset > bottom - MiniPlayerBar.height;
+  }
+
+  void _scrollToTop() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _scroll.jumpTo(0);
+    } else {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = widget.user;
+    final current = widget.current;
     final l10n = AppLocalizations.of(context);
-    final tab = ref.watch(homeTabProvider);
-    final list = ref.watch(
-      tab == HomeTab.similar ? similarSongsProvider : upNextSongsProvider,
-    );
+    final list = ref.watch(catalogSongsProvider) ?? const <Song>[];
+    // Solo con el catálogo remoto: lo descargado no se pagina.
+    final feed = ref.watch(songsProvider).value;
     final playback = ref.watch(playbackProvider).value ?? PlaybackSnapshot.idle;
     final isLoaded = playback.current?.id == current.id;
-    final downloads = ref.watch(downloadStatesProvider);
 
-    List<Song> catalog() => ref.read(songsProvider).value ?? const <Song>[];
+    // Sin red, la cola y anterior/siguiente solo usan lo descargado.
+    final playable = {
+      for (final song in ref.watch(playableSongsProvider)) song.id,
+    };
+    List<Song> catalog() => ref.read(playableSongsProvider);
     Future<void> playFrom(Song song) =>
         ref.read(playSongsProvider)(catalog(), song);
 
@@ -86,81 +157,142 @@ class _HomeContent extends ConsumerWidget {
       }
     }
 
-    void openSong(Song song) {
-      if (tab == HomeTab.upNext && playback.hasQueue) {
-        ref.read(skipToSongProvider)(song.id);
-      } else {
-        playFrom(song);
-      }
-    }
+    void playPause() => isLoaded
+        ? ref.read(togglePlaybackProvider)(playback)
+        : playFrom(current);
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(child: _TopBar(user: user)),
-        SliverToBoxAdapter(
-          child: NowPlayingHeader(
-            song: current,
-            isLoaded: isLoaded,
-            playing: isLoaded && playback.playing,
-            buffering: isLoaded && playback.buffering,
-            shuffle: playback.shuffle,
-            duration: isLoaded
-                ? (playback.duration ?? current.duration)
-                : current.duration,
-            onPlayPause: () => isLoaded
-                ? ref.read(togglePlaybackProvider)(playback)
-                : playFrom(current),
-            onPrevious: () => step(-1),
-            onNext: () => step(1),
-            onShuffle: () async {
-              if (!playback.hasQueue) await playFrom(current);
-              await ref.read(setShuffleProvider)(!playback.shuffle);
-            },
-            onQueue: () =>
-                ref.read(homeTabProvider.notifier).select(HomeTab.upNext),
-            onSeek: (position) => ref.read(seekToProvider)(position),
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _TabsDelegate(
-            selected: tab,
-            onSelected: ref.read(homeTabProvider.notifier).select,
-          ),
-        ),
-        if (list.isEmpty)
+    // Deslizar hacia abajo trae las canciones nuevas (mientras recarga se
+    // sigue viendo la lista anterior).
+    final scrollView = RefreshIndicator.adaptive(
+      onRefresh: () => ref.refresh(songsProvider.future),
+      child: CustomScrollView(
+        controller: _scroll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: _TopBar(user: user)),
           SliverToBoxAdapter(
-            child: _Message(
-              text: tab == HomeTab.similar
-                  ? l10n.similarEmpty
-                  : l10n.upNextEmpty,
+            child: NowPlayingHeader(
+              key: _headerKey,
+              song: current,
+              isLoaded: isLoaded,
+              playing: isLoaded && playback.playing,
+              buffering: isLoaded && playback.buffering,
+              shuffle: playback.shuffle,
+              repeat: playback.repeat,
+              duration: isLoaded
+                  ? (playback.duration ?? current.duration)
+                  : current.duration,
+              onPlayPause: playPause,
+              onPrevious: () => step(-1),
+              onNext: () => step(1),
+              onShuffle: () async {
+                if (!playback.hasQueue) await playFrom(current);
+                await ref.read(setShuffleProvider)(!playback.shuffle);
+              },
+              onRepeat: () async {
+                if (!playback.hasQueue) await playFrom(current);
+                await ref.read(cycleRepeatProvider)(playback);
+              },
+              onSeek: (position) => ref.read(seekToProvider)(position),
             ),
-          )
-        else
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
           SliverFixedExtentList.builder(
             itemExtent: SongTile.height,
             itemCount: list.length,
             itemBuilder: (context, index) {
               final song = list[index];
-              final isQueue = tab == HomeTab.upNext;
+              final available = playable.contains(song.id);
               return SongTile(
                 song: song,
-                action: isQueue ? SongTileAction.queue : SongTileAction.play,
-                actionTooltip: isQueue
-                    ? l10n.reorder
-                    : l10n.playSong(song.title),
-                onTap: () => openSong(song),
-                // TODO: reordenar la cola arrastrando.
-                onAction: () => openSong(song),
-                downloadState: downloads[song.id],
+                enabled: available,
+                actionTooltip: available
+                    ? l10n.playSong(song.title)
+                    : l10n.songNeedsConnection,
+                onTap: () => playFrom(song),
+                onAction: () => playFrom(song),
+                secondaryAction: SongDownloadButton(song: song, list: list),
                 onLongPress: () =>
                     showSongDownloadSheet(context, ref, song: song, list: list),
               );
             },
           ),
-        SliverToBoxAdapter(
-          child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
+          if (feed != null && feed.loadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                ),
+              ),
+            )
+          else if (feed != null && feed.loadMoreFailed)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    Text(
+                      l10n.catalogLoadMoreError,
+                      style: AppTypography.bodySmall.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => ref
+                          .read(songsProvider.notifier)
+                          .loadMore(retry: true),
+                      child: Text(l10n.retry),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
+          ),
+        ],
+      ),
+    );
+
+    final animate = !MediaQuery.disableAnimationsOf(context);
+    return Stack(
+      children: [
+        scrollView,
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          // Oculta no se construye: ni widgets de más ni texto duplicado.
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _showMini,
+            builder: (context, show, child) => AnimatedSwitcher(
+              duration: animate
+                  ? const Duration(milliseconds: 200)
+                  : Duration.zero,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => SlideTransition(
+                position: Tween(
+                  begin: const Offset(0, -1),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: show ? child : const SizedBox.shrink(),
+            ),
+            child: MiniPlayerBar(
+              song: current,
+              playing: isLoaded && playback.playing,
+              buffering: isLoaded && playback.buffering,
+              onTap: _scrollToTop,
+              onPlayPause: playPause,
+              onNext: () => step(1),
+            ),
+          ),
         ),
       ],
     );
@@ -217,12 +349,6 @@ class _TopBar extends ConsumerWidget {
             ),
             icon: const Icon(Icons.download_for_offline_outlined),
           ),
-          IconButton(
-            tooltip: l10n.search,
-            // TODO: búsqueda.
-            onPressed: () {},
-            icon: const Icon(Icons.search_rounded),
-          ),
         ],
       ),
     );
@@ -248,27 +374,6 @@ class _TopBar extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _TabsDelegate extends SliverPersistentHeaderDelegate {
-  const _TabsDelegate({required this.selected, required this.onSelected});
-
-  final HomeTab selected;
-  final ValueChanged<HomeTab> onSelected;
-
-  @override
-  double get minExtent => HomeTabs.height;
-
-  @override
-  double get maxExtent => HomeTabs.height;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
-      HomeTabs(selected: selected, onSelected: onSelected);
-
-  @override
-  bool shouldRebuild(_TabsDelegate oldDelegate) =>
-      oldDelegate.selected != selected;
 }
 
 class _Message extends StatelessWidget {

@@ -6,10 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/di/providers.dart';
+import 'core/images/cover_cache.dart';
 import 'features/player/infrastructure/sonify_audio_handler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureImageMemoryCache();
 
   if (AppConfig.hasSupabase) {
     // Lee la sesión guardada en el dispositivo; no necesita red para arrancar.

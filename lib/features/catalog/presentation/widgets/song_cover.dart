@@ -1,12 +1,16 @@
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../core/images/cover_cache.dart';
+import '../../../../core/theme/app_sizes.dart';
 
 class SongCover extends StatelessWidget {
   const SongCover({
     super.key,
     required this.cover,
-    this.size = 60,
+    this.size = AppSizes.thumbnailTrack,
     this.circular = false,
   });
 
@@ -37,13 +41,20 @@ class SongCover extends StatelessWidget {
         excludeFromSemantics: true,
         errorBuilder: (_, _, _) => placeholder,
       ),
-      'http' || 'https' => Image.network(
-        cover.toString(),
+      // Con caché en disco: no se vuelve a bajar al abrir la app.
+      'http' || 'https' => CachedNetworkImage(
+        imageUrl: cover.toString(),
+        cacheKey: coverCacheKey(cover!),
+        cacheManager: coverCacheManager,
+        memCacheHeight: cacheSize,
         fit: BoxFit.cover,
-        cacheHeight: cacheSize,
-        gaplessPlayback: true,
-        excludeFromSemantics: true,
-        errorBuilder: (_, _, _) => placeholder,
+        // Sin animaciones de aparición (y sin parpadeo al cambiar la URL
+        // firmada de un día a otro).
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        useOldImageOnUrlChange: true,
+        placeholder: (_, _) => placeholder,
+        errorWidget: (_, _, _) => placeholder,
       ),
       'file' => Image.file(
         File.fromUri(cover!),
@@ -59,6 +70,9 @@ class SongCover extends StatelessWidget {
 
     return circular
         ? ClipOval(child: sized)
-        : ClipRRect(borderRadius: BorderRadius.circular(10), child: sized);
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(AppSizes.thumbnailRadius),
+            child: sized,
+          );
   }
 }

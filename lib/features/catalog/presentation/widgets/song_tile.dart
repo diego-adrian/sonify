@@ -1,44 +1,57 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_sizes.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../downloads/domain/download_entry.dart';
 import '../../domain/song.dart';
+import 'row_icon_button.dart';
 import 'song_cover.dart';
 
-enum SongTileAction { play, queue }
-
-/// Fila de pista (Figma node 106:97).
+/// Fila de pista (Figma node 106:97). La usan la Home y Descargas.
 class SongTile extends StatelessWidget {
   const SongTile({
     super.key,
     required this.song,
-    required this.action,
     required this.actionTooltip,
     required this.onTap,
     required this.onAction,
     this.onLongPress,
-    this.downloadState,
+    this.secondaryAction,
+    this.enabled = true,
+    this.subtitle,
+    this.subtitleColor,
   });
 
   /// Alto fijo: permite listas de extensión fija (scroll más barato).
-  static const height = 92.0;
+  static const height = AppSizes.trackRowHeight;
 
   final Song song;
-  final SongTileAction action;
   final String actionTooltip;
-  final VoidCallback onTap;
-  final VoidCallback onAction;
+
+  /// `null` = no se puede reproducir todavía (p. ej. una descarga en curso),
+  /// sin atenuar la fila.
+  final VoidCallback? onTap;
+  final VoidCallback? onAction;
   final VoidCallback? onLongPress;
 
-  /// Marca junto al artista si la canción está descargada o bajando.
-  final DownloadState? downloadState;
+  /// Segunda línea; por defecto el artista.
+  final String? subtitle;
+  final Color? subtitleColor;
+
+  /// Botón opcional a la izquierda del de reproducir (p. ej. descargar).
+  final Widget? secondaryAction;
+
+  /// `false` sin red para una canción no descargada: se ve atenuada y no se
+  /// puede reproducir (descargar y mantener presionado siguen activos).
+  final bool enabled;
+
+  static const _disabledOpacity = RowIconButton.disabledOpacity;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -48,70 +61,47 @@ class SongTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SongCover(cover: song.cover),
-              const SizedBox(width: 18),
+              _Dimmed(
+                enabled: enabled,
+                child: SongCover(cover: song.cover),
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.title.copyWith(
-                        color: scheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (downloadState case final state?) ...[
-                          Icon(
-                            switch (state) {
-                              DownloadState.done => Icons.download_done_rounded,
-                              DownloadState.queued => Icons.downloading_rounded,
-                              DownloadState.failed =>
-                                Icons.error_outline_rounded,
-                            },
-                            size: 16,
-                            color: state == DownloadState.done
-                                ? scheme.primary
-                                : scheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                        ],
-                        Flexible(
-                          child: Text(
-                            song.artistName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
+                child: _Dimmed(
+                  enabled: enabled,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.trackTitle.copyWith(
+                          color: scheme.onSurface,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle ?? song.artistName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.trackSubtitle.copyWith(
+                          color: subtitleColor ?? scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
-              IconButton(
+              ?secondaryAction,
+              if (secondaryAction != null) const SizedBox(width: 10),
+              RowIconButton(
                 tooltip: actionTooltip,
-                onPressed: onAction,
-                style: IconButton.styleFrom(
-                  fixedSize: const Size.square(52),
-                  backgroundColor: scheme.surface,
-                  foregroundColor: action == SongTileAction.play
-                      ? scheme.primary
-                      : scheme.onSurface,
-                  side: BorderSide(color: scheme.outline),
-                ),
-                icon: Icon(switch (action) {
-                  SongTileAction.play => Icons.play_arrow_outlined,
-                  SongTileAction.queue => Icons.drag_handle_rounded,
-                }, size: 28),
+                onPressed: enabled ? onAction : null,
+                color: scheme.primary,
+                icon: const Icon(Icons.play_arrow_outlined, size: 24),
               ),
             ],
           ),
@@ -119,4 +109,16 @@ class SongTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _Dimmed extends StatelessWidget {
+  const _Dimmed({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => enabled
+      ? child
+      : Opacity(opacity: SongTile._disabledOpacity, child: child);
 }

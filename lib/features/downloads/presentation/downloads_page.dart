@@ -2,24 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/theme/app_sizes.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../catalog/presentation/widgets/song_cover.dart';
+import '../../catalog/presentation/widgets/row_icon_button.dart';
+import '../../catalog/presentation/widgets/song_tile.dart';
 import '../domain/download_entry.dart';
 import 'download_actions.dart';
 import 'downloads_providers.dart';
 
 /// Lo que se puede escuchar sin señal. Funciona sin red: lee de Drift.
-class DownloadsPage extends ConsumerWidget {
+class DownloadsPage extends ConsumerStatefulWidget {
   const DownloadsPage({super.key});
 
-  static const _rowHeight = 80.0;
+  @override
+  ConsumerState<DownloadsPage> createState() => _DownloadsPageState();
+}
+
+class _DownloadsPageState extends ConsumerState<DownloadsPage> {
+  static const _rowHeight = AppSizes.trackRowHeight;
+
+  /// Filas quitadas con el gesto: se ocultan ya, porque un `Dismissible`
+  /// descartado no puede seguir en el árbol mientras Drift avisa del borrado.
+  final _dismissed = <String>{};
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final entries = ref.watch(downloadsProvider).value ?? const [];
+    final all = ref.watch(downloadsProvider).value ?? const <DownloadEntry>[];
+    _dismissed.retainWhere((id) => all.any((e) => e.song.id == id));
+    final entries = [
+      for (final entry in all)
+        if (!_dismissed.contains(entry.song.id)) entry,
+    ];
     final done = [
       for (final entry in entries)
         if (entry.state == DownloadState.done) entry,
@@ -32,7 +48,7 @@ class DownloadsPage extends ConsumerWidget {
         actions: [
           if (entries.isNotEmpty)
             TextButton(
-              onPressed: () => _confirmDeleteAll(context, ref),
+              onPressed: _confirmDeleteAll,
               child: Text(l10n.downloadsDeleteAll),
             ),
         ],
@@ -68,16 +84,44 @@ class DownloadsPage extends ConsumerWidget {
                   itemCount: entries.length,
                   itemBuilder: (context, index) {
                     final entry = entries[index];
-                    return _DownloadTile(
-                      entry: entry,
-                      onTap: entry.state == DownloadState.done
-                          ? () => ref.read(playSongsProvider)([
-                              for (final e in done) e.song,
-                            ], entry.song)
-                          : null,
-                      onRetry: () => downloadSongs(context, ref, [entry.song]),
-                      onRemove: () =>
-                          ref.read(removeDownloadProvider)(entry.song.id),
+                    return Dismissible(
+                      key: ValueKey(entry.song.id),
+                      direction: DismissDirection.endToStart,
+                      background: ColoredBox(
+                        color: scheme.primary,
+                        child: Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(end: 28),
+                            child: Icon(
+                              Icons.delete_outline_rounded,
+                              color: scheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      confirmDismiss: (_) => _confirmRemove(entry),
+                      onDismissed: (_) {
+                        setState(() => _dismissed.add(entry.song.id));
+                        ref.read(removeDownloadProvider)(entry.song.id);
+                      },
+                      child: _DownloadTile(
+                        entry: entry,
+                        onTap: entry.state == DownloadState.done
+                            ? () => ref.read(playSongsProvider)([
+                                for (final e in done) e.song,
+                              ], entry.song)
+                            : null,
+                        onRetry: () =>
+                            downloadSongs(context, ref, [entry.song]),
+                        onRemove: () async {
+                          if (await _confirmRemove(entry)) {
+                            await ref.read(removeDownloadProvider)(
+                              entry.song.id,
+                            );
+                          }
+                        },
+                      ),
                     );
                   },
                 ),
@@ -91,12 +135,27 @@ class DownloadsPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDeleteAll(BuildContext context, WidgetRef ref) async {
+  /// Igual al tocar la papelera o al deslizar la fila.
+  Future<bool> _confirmRemove(DownloadEntry entry) => _confirm(
+    AppLocalizations.of(context).downloadRemoveConfirm(entry.song.title),
+  );
+
+  Future<void> _confirmDeleteAll() async {
+    final confirmed = await _confirm(
+      AppLocalizations.of(context).downloadsDeleteAllConfirm,
+    );
+    if (confirmed) {
+      await ref.read(stopPlaybackProvider)();
+      await ref.read(clearDownloadsProvider)();
+    }
+  }
+
+  Future<bool> _confirm(String message) async {
     final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        content: Text(l10n.downloadsDeleteAllConfirm),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -109,10 +168,7 @@ class DownloadsPage extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed ?? false) {
-      await ref.read(stopPlaybackProvider)();
-      await ref.read(clearDownloadsProvider)();
-    }
+    return confirmed ?? false;
   }
 }
 
@@ -150,66 +206,52 @@ class _DownloadTile extends ConsumerWidget {
       DownloadState.failed => l10n.downloadStateFailed,
     };
 
-    return InkWell(
+    final failed = entry.state == DownloadState.failed;
+    // Mismo estilo de fila que la Home: portada, título, artista + estado y
+    // botones redondos (borrar en rojo y reproducir).
+    return SongTile(
+      song: entry.song,
+      subtitle: '${entry.song.artistName} · $status',
+      subtitleColor: failed ? scheme.error : null,
+      actionTooltip: l10n.playSong(entry.song.title),
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          children: [
-            SongCover(cover: entry.song.cover, size: 52),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.song.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.title.copyWith(
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${entry.song.artistName} · $status',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: entry.state == DownloadState.failed
-                          ? scheme.error
-                          : scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+      onAction: onTap,
+      secondaryAction: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (failed) ...[
+            RowIconButton(
+              tooltip: l10n.downloadRetry,
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 22),
             ),
-            if (entry.state == DownloadState.failed)
-              IconButton(
-                tooltip: l10n.downloadRetry,
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            IconButton(
-              tooltip: l10n.downloadRemove,
-              onPressed: onRemove,
-              // Sin avance todavía (en cola o esperando Wi-Fi): ícono fijo,
-              // nada de animaciones en bucle.
-              icon: entry.state == DownloadState.queued && progress == null
-                  ? const Icon(Icons.schedule_rounded)
-                  : entry.state == DownloadState.queued
-                  ? SizedBox.square(
-                      dimension: 22,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 2.5,
-                      ),
-                    )
-                  : const Icon(Icons.delete_outline_rounded),
-            ),
+            const SizedBox(width: 10),
           ],
-        ),
+          RowIconButton(
+            tooltip: l10n.downloadRemove,
+            onPressed: onRemove,
+            // Sin avance todavía (en cola o esperando Wi-Fi): ícono fijo,
+            // nada de animaciones en bucle.
+            icon: switch (entry.state) {
+              DownloadState.queued when progress == null => const Icon(
+                Icons.schedule_rounded,
+                size: 22,
+              ),
+              DownloadState.queued => SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 2.5,
+                ),
+              ),
+              _ => Icon(
+                Icons.delete_outline_rounded,
+                size: 22,
+                color: scheme.primary,
+              ),
+            },
+          ),
+        ],
       ),
     );
   }

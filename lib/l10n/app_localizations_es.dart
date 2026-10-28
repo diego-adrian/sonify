@@ -38,9 +38,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get account => 'Cuenta';
 
   @override
-  String get search => 'Buscar';
-
-  @override
   String playSong(String title) {
     return 'Reproducir $title';
   }
@@ -55,10 +52,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get retry => 'Reintentar';
 
   @override
-  String get tabSimilar => 'Similares';
+  String get catalogLoadMoreError => 'No se pudieron cargar más canciones';
 
   @override
-  String get tabUpNext => 'A continuación';
+  String get showPlayer => 'Ver reproductor';
+
+  @override
+  String get songNeedsConnection =>
+      'Sin conexión: descárgala para escucharla sin red';
+
+  @override
+  String get refresh => 'Actualizar';
 
   @override
   String get shuffle => 'Aleatorio';
@@ -73,19 +77,16 @@ class AppLocalizationsEs extends AppLocalizations {
   String get play => 'Reproducir';
 
   @override
-  String get reorder => 'Reordenar';
-
-  @override
-  String get similarEmpty => 'No hay canciones similares todavía.';
-
-  @override
-  String get upNextEmpty => 'No hay más canciones en la cola.';
-
-  @override
   String get pause => 'Pausar';
 
   @override
-  String get showQueue => 'Ver cola';
+  String get repeatOff => 'Repetir: desactivado';
+
+  @override
+  String get repeatAll => 'Repetir todo';
+
+  @override
+  String get repeatOne => 'Repetir esta canción';
 
   @override
   String get uploadTitle => 'Subir canción';
@@ -106,27 +107,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get uploadGenreNone => 'Sin género';
 
   @override
-  String get uploadLicense => 'Licencia';
+  String get uploadGenreSearch => 'Escribe para buscar';
 
   @override
-  String get licenseCc0 => 'CC0 · Dominio público';
-
-  @override
-  String get licenseCcBy => 'CC BY · Atribución';
-
-  @override
-  String get licenseCcBySa => 'CC BY-SA · Atribución, compartir igual';
-
-  @override
-  String get licenseCcByNc => 'CC BY-NC · Atribución, no comercial';
-
-  @override
-  String get licenseCcByNcSa =>
-      'CC BY-NC-SA · Atribución, no comercial, compartir igual';
+  String get uploadGenreNoResults => 'No hay géneros con ese nombre';
 
   @override
   String get uploadRights =>
-      'Declaro que soy el autor de esta canción o tengo los derechos para publicarla con la licencia elegida.';
+      'Declaro que soy el autor de esta canción o tengo los derechos para publicarla en dominio público (CC0): cualquiera podrá escucharla, compartirla y usarla libremente.';
 
   @override
   String get uploadSubmit => 'Subir';
@@ -236,6 +224,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get downloadRemove => 'Quitar descarga';
+
+  @override
+  String downloadRemoveConfirm(String title) {
+    return '¿Borrar «$title» de tus descargas? Ya no podrás escucharla sin señal.';
+  }
 
   @override
   String get downloadRetry => 'Reintentar descarga';

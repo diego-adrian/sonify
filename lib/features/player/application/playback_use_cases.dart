@@ -73,6 +73,16 @@ final class SkipToSong {
   Future<void> call(String songId) => _player.skipToSong(songId);
 }
 
+/// Pasa al siguiente modo de repetición (desactivado → todo → una).
+final class CycleRepeat {
+  const CycleRepeat(this._player);
+
+  final AudioPlayerPort _player;
+
+  Future<void> call(PlaybackSnapshot state) =>
+      _player.setRepeat(state.repeat.next);
+}
+
 final class SetShuffle {
   const SetShuffle(this._player);
 

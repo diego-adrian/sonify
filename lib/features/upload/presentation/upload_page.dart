@@ -8,6 +8,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../catalog/presentation/catalog_providers.dart';
 import '../domain/picked_audio_file.dart';
 import '../domain/song_license.dart';
+import 'widgets/genre_field.dart';
 import '../domain/upload_failure.dart';
 import '../domain/upload_rules.dart';
 import 'upload_controller.dart';
@@ -25,7 +26,9 @@ class _UploadPageState extends ConsumerState<UploadPage> {
   PickedAudioFile? _file;
   PickedImageFile? _cover;
   int? _genreId;
-  SongLicense _license = SongLicense.ccBy;
+
+  /// Por ahora todo se publica en dominio público: sin selector de licencia.
+  static const _license = SongLicense.cc0;
   bool _rightsAccepted = false;
 
   @override
@@ -134,45 +137,13 @@ class _UploadPageState extends ConsumerState<UploadPage> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<int?>(
-              initialValue: _genreId,
-              decoration: InputDecoration(
-                labelText: l10n.uploadGenre,
-                border: const OutlineInputBorder(),
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: null,
-                  child: Text(l10n.uploadGenreNone),
-                ),
-                for (final genre in genres)
-                  DropdownMenuItem(value: genre.id, child: Text(genre.name)),
-              ],
-              onChanged: busy ? null : (id) => setState(() => _genreId = id),
+            GenreField(
+              genres: genres,
+              value: _genreId,
+              enabled: !busy,
+              onChanged: (id) => setState(() => _genreId = id),
             ),
             const SizedBox(height: 20),
-            DropdownButtonFormField<SongLicense>(
-              initialValue: _license,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: l10n.uploadLicense,
-                border: const OutlineInputBorder(),
-              ),
-              items: [
-                for (final license in SongLicense.values)
-                  DropdownMenuItem(
-                    value: license,
-                    child: Text(
-                      _licenseText(l10n, license),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: busy
-                  ? null
-                  : (license) => setState(() => _license = license!),
-            ),
-            const SizedBox(height: 12),
             CheckboxListTile(
               value: _rightsAccepted,
               onChanged: busy
@@ -222,15 +193,6 @@ class _UploadPageState extends ConsumerState<UploadPage> {
       ),
     );
   }
-
-  static String _licenseText(AppLocalizations l10n, SongLicense license) =>
-      switch (license) {
-        SongLicense.cc0 => l10n.licenseCc0,
-        SongLicense.ccBy => l10n.licenseCcBy,
-        SongLicense.ccBySa => l10n.licenseCcBySa,
-        SongLicense.ccByNc => l10n.licenseCcByNc,
-        SongLicense.ccByNcSa => l10n.licenseCcByNcSa,
-      };
 
   static String _failureText(AppLocalizations l10n, UploadFailure failure) =>
       switch (failure) {

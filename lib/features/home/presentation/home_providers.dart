@@ -20,44 +20,14 @@ class CurrentSongId extends Notifier<String?> {
 final currentSongProvider = Provider<Song?>((ref) {
   final playing = ref.watch(playbackProvider).value?.current;
   if (playing != null) return playing;
-  final songs = ref.watch(songsProvider).value;
+  final songs = ref.watch(catalogSongsProvider);
   if (songs == null || songs.isEmpty) return null;
+  // Sin red se prefiere una que pueda sonar (descargada).
+  final playable = ref.watch(playableSongsProvider);
   final id = ref.watch(currentSongIdProvider);
-  return songs.firstWhere((song) => song.id == id, orElse: () => songs.first);
-});
-
-enum HomeTab { similar, upNext }
-
-final homeTabProvider = NotifierProvider<HomeTabNotifier, HomeTab>(
-  HomeTabNotifier.new,
-);
-
-class HomeTabNotifier extends Notifier<HomeTab> {
-  @override
-  HomeTab build() => HomeTab.similar;
-
-  void select(HomeTab tab) => state = tab;
-}
-
-/// Mismo género que la canción actual.
-final similarSongsProvider = Provider<List<Song>>((ref) {
-  final songs = ref.watch(songsProvider).value ?? const [];
-  final current = ref.watch(currentSongProvider);
-  if (current == null) return const [];
-  return songs
-      .where((s) => s.id != current.id && s.genreId == current.genreId)
-      .toList(growable: false);
-});
-
-/// La cola real del reproductor o, si no hay, lo que sigue en el catálogo.
-final upNextSongsProvider = Provider<List<Song>>((ref) {
-  final playback = ref.watch(playbackProvider).value;
-  if (playback != null && playback.hasQueue) return playback.upNext;
-  final songs = ref.watch(songsProvider).value ?? const [];
-  final current = ref.watch(currentSongProvider);
-  if (current == null) return const [];
-  final index = songs.indexWhere((s) => s.id == current.id);
-  return songs.sublist(index + 1);
+  Song? byId(List<Song> list) =>
+      list.where((song) => song.id == id).firstOrNull;
+  return byId(playable) ?? playable.firstOrNull ?? byId(songs) ?? songs.first;
 });
 
 /// Anterior / siguiente en el catálogo (con vuelta al inicio).

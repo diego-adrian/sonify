@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../catalog/domain/song.dart';
 import '../../../catalog/presentation/widgets/song_cover.dart';
+import '../../../player/domain/playback_snapshot.dart';
 import '../../../player/presentation/widgets/playback_progress_bar.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -15,12 +16,13 @@ class NowPlayingHeader extends StatelessWidget {
     required this.playing,
     required this.buffering,
     required this.shuffle,
+    required this.repeat,
     required this.duration,
     required this.onPlayPause,
     required this.onPrevious,
     required this.onNext,
     required this.onShuffle,
-    required this.onQueue,
+    required this.onRepeat,
     required this.onSeek,
   });
 
@@ -31,12 +33,13 @@ class NowPlayingHeader extends StatelessWidget {
   final bool playing;
   final bool buffering;
   final bool shuffle;
+  final PlaybackRepeat repeat;
   final Duration duration;
   final VoidCallback onPlayPause;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onShuffle;
-  final VoidCallback onQueue;
+  final VoidCallback onRepeat;
   final ValueChanged<Duration> onSeek;
 
   @override
@@ -100,11 +103,12 @@ class NowPlayingHeader extends StatelessWidget {
             playing: playing,
             buffering: buffering,
             shuffle: shuffle,
+            repeat: repeat,
             onPlayPause: onPlayPause,
             onPrevious: onPrevious,
             onNext: onNext,
             onShuffle: onShuffle,
-            onQueue: onQueue,
+            onRepeat: onRepeat,
           ),
         ],
       ),
@@ -117,21 +121,23 @@ class _Controls extends StatelessWidget {
     required this.playing,
     required this.buffering,
     required this.shuffle,
+    required this.repeat,
     required this.onPlayPause,
     required this.onPrevious,
     required this.onNext,
     required this.onShuffle,
-    required this.onQueue,
+    required this.onRepeat,
   });
 
   final bool playing;
   final bool buffering;
   final bool shuffle;
+  final PlaybackRepeat repeat;
   final VoidCallback onPlayPause;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onShuffle;
-  final VoidCallback onQueue;
+  final VoidCallback onRepeat;
 
   @override
   Widget build(BuildContext context) {
@@ -192,9 +198,16 @@ class _Controls extends StatelessWidget {
           onPressed: onNext,
         ),
         _RoundButton(
-          icon: Icons.queue_music_rounded,
-          tooltip: l10n.showQueue,
-          onPressed: onQueue,
+          icon: repeat == PlaybackRepeat.one
+              ? Icons.repeat_one_rounded
+              : Icons.repeat_rounded,
+          tooltip: switch (repeat) {
+            PlaybackRepeat.off => l10n.repeatOff,
+            PlaybackRepeat.all => l10n.repeatAll,
+            PlaybackRepeat.one => l10n.repeatOne,
+          },
+          selected: repeat != PlaybackRepeat.off,
+          onPressed: onRepeat,
         ),
       ],
     );

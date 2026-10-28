@@ -6,19 +6,25 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Clave AES-256 de las descargas, por usuario y dispositivo, en Keychain /
 /// Keystore. Nunca en disco plano ni en la base local.
+///
+/// [purpose] separa claves: la caché de lo escuchado usa la suya, así
+/// "Borrar todo" en Descargas (que borra su clave) no la deja ilegible.
 final class DownloadKeyStore {
-  DownloadKeyStore(String userId, [FlutterSecureStorage? storage])
-    : _name = 'sonify.downloads.key.v1.$userId',
-      _storage =
-          storage ??
-          const FlutterSecureStorage(
-            // Solo este dispositivo (sin iCloud Keychain) y legible con el
-            // teléfono bloqueado tras el primer desbloqueo: así suena en
-            // segundo plano y desde CarPlay.
-            iOptions: IOSOptions(
-              accessibility: KeychainAccessibility.first_unlock_this_device,
-            ),
-          );
+  DownloadKeyStore(
+    String userId, {
+    String purpose = 'downloads',
+    FlutterSecureStorage? storage,
+  }) : _name = 'sonify.$purpose.key.v1.$userId',
+       _storage =
+           storage ??
+           const FlutterSecureStorage(
+             // Solo este dispositivo (sin iCloud Keychain) y legible con el
+             // teléfono bloqueado tras el primer desbloqueo: así suena en
+             // segundo plano y desde CarPlay.
+             iOptions: IOSOptions(
+               accessibility: KeychainAccessibility.first_unlock_this_device,
+             ),
+           );
 
   final String _name;
   final FlutterSecureStorage _storage;
