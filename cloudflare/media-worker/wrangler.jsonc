@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sonify-media",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // El registro DNS proxied `sonify` ya existe en la zona; el Worker lo intercepta.
+  "routes": [{ "pattern": "sonify.diegoadrian.com/*", "zone_name": "diegoadrian.com" }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  // No son secretos. Los secretos (B2_KEY_ID, B2_APPLICATION_KEY de solo
+  // lectura, MEDIA_URL_SECRET) se cargan en el dashboard de Cloudflare.
+  "vars": {
+    "B2_BUCKET": "sonify-media-adrian",
+    "B2_ENDPOINT": "s3.us-east-005.backblazeb2.com"
+  }
+}

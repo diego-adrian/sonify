@@ -1,0 +1,74 @@
+import 'dart:ui';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sonify/app.dart';
+import 'package:sonify/core/di/providers.dart';
+import 'package:sonify/features/auth/infrastructure/fake_auth_repository.dart';
+
+import '../../../helpers/fake_audio_player.dart';
+import '../../../helpers/fake_download_repository.dart';
+
+void main() {
+  testWidgets('login con Google lleva a la Home y cerrar sesión vuelve', (
+    tester,
+  ) async {
+    // Pantalla de iPhone (440×956 pt).
+    tester.view.physicalSize = const Size(1320, 2868);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final repository = FakeAuthRepository(latency: Duration.zero);
+    addTearDown(repository.dispose);
+    final player = FakeAudioPlayer();
+    addTearDown(player.dispose);
+    final downloads = FakeDownloadRepository();
+    addTearDown(downloads.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(repository),
+          audioPlayerProvider.overrideWithValue(player),
+          downloadRepositoryProvider.overrideWithValue(downloads),
+        ],
+        child: const SonifyApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sonify'), findsOneWidget);
+    expect(find.text('tu ritmo son latino'), findsOneWidget);
+
+    await tester.tap(find.text('Ingresar con Google'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hola, Artista'), findsOneWidget);
+    // La primera canción del catálogo queda arriba como actual.
+    expect(find.text('Mariposa Traicionera'), findsOneWidget);
+    expect(find.text('Similares'), findsOneWidget);
+
+    // ▶ reproduce desde la canción mostrada.
+    await tester.tap(find.byTooltip('Reproducir'));
+    await tester.pumpAndSettle();
+    expect(player.state.current?.title, 'Mariposa Traicionera');
+    expect(find.byTooltip('Pausar'), findsOneWidget);
+
+    // Siguiente avanza en la cola.
+    await tester.tap(find.byTooltip('Siguiente'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vuela Vuela'), findsWidgets);
+
+    await tester.tap(find.bySemanticsLabel('Cuenta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cerrar sesión'));
+    await tester.pumpAndSettle();
+
+    // Cerrar sesión detiene la música y pausa las descargas sin borrarlas.
+    expect(player.state.hasQueue, isFalse);
+    expect(downloads.suspendCalls, 1);
+    expect(downloads.removeAllCalls, 0);
+
+    expect(find.text('Ingresar con Google'), findsOneWidget);
+  });
+}

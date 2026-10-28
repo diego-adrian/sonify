@@ -1,0 +1,138 @@
+{
+  "@@locale": "es",
+  "appTitle": "Sonify",
+  "loginTagline": "tu ritmo son latino",
+  "loginWithGoogle": "Ingresar con Google",
+  "authErrorNetwork": "Sin conexión. Revisa tu internet e inténtalo de nuevo.",
+  "authErrorUnknown": "No pudimos iniciar sesión. Inténtalo de nuevo.",
+  "homeGreeting": "Hola, {name}",
+  "@homeGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "signOut": "Cerrar sesión",
+  "account": "Cuenta",
+  "search": "Buscar",
+  "playSong": "Reproducir {title}",
+  "@playSong": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "catalogEmpty": "Aún no hay canciones.",
+  "catalogError": "No pudimos cargar las canciones.",
+  "retry": "Reintentar",
+  "tabSimilar": "Similares",
+  "tabUpNext": "A continuación",
+  "shuffle": "Aleatorio",
+  "previous": "Anterior",
+  "next": "Siguiente",
+  "play": "Reproducir",
+  "reorder": "Reordenar",
+  "similarEmpty": "No hay canciones similares todavía.",
+  "upNextEmpty": "No hay más canciones en la cola.",
+  "pause": "Pausar",
+  "showQueue": "Ver cola",
+  "uploadTitle": "Subir canción",
+  "uploadPickFile": "Elegir archivo de audio",
+  "uploadFileHint": "WAV, FLAC, MP3 o M4A · hasta 200 MB",
+  "uploadSongTitle": "Título",
+  "uploadGenre": "Género",
+  "uploadGenreNone": "Sin género",
+  "uploadLicense": "Licencia",
+  "licenseCc0": "CC0 · Dominio público",
+  "licenseCcBy": "CC BY · Atribución",
+  "licenseCcBySa": "CC BY-SA · Atribución, compartir igual",
+  "licenseCcByNc": "CC BY-NC · Atribución, no comercial",
+  "licenseCcByNcSa": "CC BY-NC-SA · Atribución, no comercial, compartir igual",
+  "uploadRights": "Declaro que soy el autor de esta canción o tengo los derechos para publicarla con la licencia elegida.",
+  "uploadSubmit": "Subir",
+  "uploadProgress": "Subiendo… {percent}%",
+  "@uploadProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadDone": "¡Listo! Tu canción se está procesando y aparecerá cuando esté lista.",
+  "uploadErrorNoFile": "Elige un archivo de audio.",
+  "uploadErrorTitle": "Escribe un título (máximo 120 caracteres).",
+  "uploadErrorRights": "Debes declarar que tienes los derechos de la canción.",
+  "uploadErrorType": "Formato no soportado. Usa WAV, FLAC, MP3 o M4A.",
+  "uploadErrorTooLarge": "El archivo supera los 200 MB.",
+  "uploadErrorDailyLimit": "Llegaste al límite de subidas de hoy. Inténtalo mañana.",
+  "uploadErrorNetwork": "Se perdió la conexión durante la subida. Inténtalo de nuevo.",
+  "uploadErrorUnknown": "No pudimos subir la canción. Inténtalo de nuevo.",
+  "uploadPickCover": "Elegir portada",
+  "uploadCoverHint": "Cuadrada, mín. 640 px\nJPG, PNG o WebP",
+  "uploadDescription": "Descripción (opcional)",
+  "uploadDescriptionHint": "De qué trata, créditos, letra corta…",
+  "uploadErrorDescription": "La descripción supera los 500 caracteres.",
+  "uploadErrorCoverType": "La portada debe ser JPG, PNG o WebP.",
+  "uploadErrorCoverTooLarge": "La portada supera los 10 MB.",
+  "uploadErrorCoverTooSmall": "La portada debe medir al menos 640 × 640 px.",
+  "downloads": "Descargas",
+  "downloadsEmpty": "Aún no tienes descargas.\nMantén presionada una canción para descargarla y escucharla sin señal.",
+  "downloadsSummary": "{count, plural, =1{1 canción} other{{count} canciones}} · {size}",
+  "@downloadsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsDeleteAll": "Borrar todo",
+  "downloadsDeleteAllConfirm": "¿Borrar todas las descargas? Tendrás que volver a bajarlas para escucharlas sin señal.",
+  "cancel": "Cancelar",
+  "delete": "Borrar",
+  "downloadSong": "Descargar",
+  "downloadList": "Descargar toda la lista ({count})",
+  "@downloadList": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadRemove": "Quitar descarga",
+  "downloadRetry": "Reintentar descarga",
+  "downloadQueued": "{count, plural, =0{Ya estaba descargado} =1{Descargando 1 canción (solo con Wi-Fi)} other{Descargando {count} canciones (solo con Wi-Fi)}}",
+  "@downloadQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadNoSpace": "No hay espacio: necesitas {required} y tienes {available} libres.",
+  "@downloadNoSpace": {
+    "placeholders": {
+      "required": {
+        "type": "String"
+      },
+      "available": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadStateDone": "Descargada",
+  "downloadStateQueued": "En cola",
+  "downloadStateFailed": "Falló la descarga",
+  "downloadProgress": "Descargando {percent}%",
+  "@downloadProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
+}

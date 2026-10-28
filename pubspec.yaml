@@ -1,0 +1,54 @@
+name: sonify
+description: "Sonify: música libre de derechos para artistas emergentes."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  audio_service: ^0.18.19
+  audio_session: ^0.2.4
+  background_downloader: ^9.6.4
+  crypto: ^3.0.8
+  drift: ^2.35.3
+  drift_flutter: ^0.3.1
+  file_picker: ^13.3.0
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^3.4.3
+  flutter_secure_storage: ^11.2.0
+  google_sign_in: ^7.2.0
+  intl: ^0.20.3
+  just_audio: ^0.10.6
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  pointycastle: ^4.0.0
+  supabase_flutter: ^2.18.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.35.2
+  build_runner: ^2.17.1
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+    # Solo para el catálogo de desarrollo; borrar al conectar Supabase.
+    - assets/dev/covers/
+    - assets/dev/covers/large/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/poppins/Poppins-Light.ttf
+          weight: 300
+        - asset: assets/fonts/poppins/Poppins-Regular.ttf
+          weight: 400
