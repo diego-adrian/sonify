@@ -1,9 +1,14 @@
-// Composition root del transcodificador (Cloud Run). Supabase lo llama con
+// Composition root del transcodificador (Render). Supabase lo llama con
 // `POST /transcode {"song_id": "…"}` cuando una canción pasa a `processing`.
 import { timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage } from 'node:http';
 
-import { transcodeSong, type TranscodeDeps } from './application/transcode_song.ts';
+import { SerialQueue } from './application/serial_queue.ts';
+import {
+  transcodeSong,
+  type TranscodeDeps,
+  type TranscodeOutcome,
+} from './application/transcode_song.ts';
 import { b2ObjectStore } from './infrastructure/b2_object_store.ts';
 import { ffmpegMediaTool } from './infrastructure/ffmpeg_media_tool.ts';
 import { localFiles } from './infrastructure/local_files.ts';
@@ -28,6 +33,10 @@ const deps: TranscodeDeps = {
   files: localFiles,
   log: (message, error) => console.error(message, error ?? ''),
 };
+
+// De a una canción: si llegan varias juntas, esperan su turno con la
+// petición abierta (eso además evita que Render duerma la instancia).
+const queue = new SerialQueue<TranscodeOutcome>();
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -65,12 +74,14 @@ const server = createServer(async (req, res) => {
     return reply(400, { error: 'bad_song_id' });
   }
 
-  // Se responde al terminar: en Cloud Run la CPU solo está asignada mientras
-  // hay una petición abierta.
+  // Se responde al terminar (o al terminar la cola de delante).
   const started = Date.now();
+  const id = songId;
   try {
-    const outcome = await transcodeSong(songId, deps);
-    console.log(JSON.stringify({ songId, outcome, ms: Date.now() - started }));
+    const outcome = await queue.run(id, () => transcodeSong(id, deps));
+    console.log(
+      JSON.stringify({ songId, outcome, ms: Date.now() - started, queued: queue.size }),
+    );
     reply(200, { outcome });
   } catch (error) {
     console.error('transcode crashed', songId, error);

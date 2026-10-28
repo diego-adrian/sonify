@@ -12,6 +12,9 @@ abstract final class AppConfig {
     'GOOGLE_WEB_CLIENT_ID',
   );
 
+  /// Dominio del CDN de medios (Worker de Cloudflare), sin `/` final.
+  static const cdnBaseUrl = String.fromEnvironment('CDN_BASE_URL');
+
   static bool get hasSupabase =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
 

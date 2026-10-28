@@ -7,6 +7,7 @@ import 'package:sonify/core/di/providers.dart';
 import 'package:sonify/features/auth/infrastructure/fake_auth_repository.dart';
 
 import '../../../helpers/fake_audio_player.dart';
+import '../../../helpers/fake_catalog_repository.dart';
 import '../../../helpers/fake_download_repository.dart';
 
 void main() {
@@ -31,6 +32,9 @@ void main() {
           authRepositoryProvider.overrideWithValue(repository),
           audioPlayerProvider.overrideWithValue(player),
           downloadRepositoryProvider.overrideWithValue(downloads),
+          catalogRepositoryProvider.overrideWithValue(
+            const FakeCatalogRepository(),
+          ),
         ],
         child: const SonifyApp(),
       ),

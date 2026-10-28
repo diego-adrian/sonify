@@ -14,7 +14,8 @@ import '../../features/auth/infrastructure/supabase_auth_repository.dart';
 import '../../features/catalog/application/get_genres.dart';
 import '../../features/catalog/application/get_songs.dart';
 import '../../features/catalog/domain/catalog_repository.dart';
-import '../../features/catalog/infrastructure/in_memory_catalog_repository.dart';
+import '../../features/catalog/infrastructure/offline_fallback_catalog_repository.dart';
+import '../../features/catalog/infrastructure/supabase_catalog_repository.dart';
 import '../../features/downloads/application/download_use_cases.dart';
 import '../../features/downloads/domain/download_ports.dart';
 import '../../features/downloads/infrastructure/background_download_repository.dart';
@@ -65,9 +66,14 @@ final authStateProvider = StreamProvider<AppUser?>(
   (ref) => WatchAuthState(ref.watch(authRepositoryProvider))(),
 );
 
-// TODO: reemplazar por el adaptador de Supabase cuando haya canciones reales.
 final catalogRepositoryProvider = Provider<CatalogRepository>(
-  (ref) => const InMemoryCatalogRepository(),
+  (ref) => OfflineFallbackCatalogRepository(
+    SupabaseCatalogRepository(
+      Supabase.instance.client,
+      cdnBaseUrl: AppConfig.cdnBaseUrl,
+    ),
+    ref.watch(downloadRepositoryProvider),
+  ),
 );
 
 final getGenresProvider = Provider(

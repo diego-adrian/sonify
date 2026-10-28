@@ -3,10 +3,11 @@ import 'package:sonify/core/result.dart';
 import 'package:sonify/features/catalog/application/get_songs.dart';
 import 'package:sonify/features/catalog/domain/catalog_failure.dart';
 import 'package:sonify/features/catalog/domain/song.dart';
-import 'package:sonify/features/catalog/infrastructure/in_memory_catalog_repository.dart';
+
+import '../../helpers/fake_catalog_repository.dart';
 
 void main() {
-  const getSongs = GetSongs(InMemoryCatalogRepository());
+  const getSongs = GetSongs(FakeCatalogRepository());
 
   List<Song> songsOf(Result<List<Song>, CatalogFailure> result) =>
       (result as Ok<List<Song>, CatalogFailure>).value;

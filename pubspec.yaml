@@ -41,9 +41,6 @@ flutter:
 
   assets:
     - assets/images/
-    # Solo para el catálogo de desarrollo; borrar al conectar Supabase.
-    - assets/dev/covers/
-    - assets/dev/covers/large/
 
   fonts:
     - family: Poppins
