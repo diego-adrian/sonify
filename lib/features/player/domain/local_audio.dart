@@ -52,6 +52,15 @@ abstract interface class ListeningCache implements LocalAudioLibrary {
 
   /// Borra los temporales en claro (nueva cola, stop).
   Future<void> clearTemporary();
+
+  /// Borra el temporal en claro de una canción que se saltó ya bajada.
+  Future<void> discardTemporary(String songId);
+
+  /// Lo que ocupa lo guardado, en bytes.
+  Future<int> usedBytes();
+
+  /// "Vaciar caché": borra todo lo guardado (las descargas no se tocan).
+  Future<void> clear();
 }
 
 /// Sin caché (sin sesión, tests).
@@ -79,4 +88,13 @@ final class NoListeningCache implements ListeningCache {
 
   @override
   Future<void> clearTemporary() async {}
+
+  @override
+  Future<void> discardTemporary(String songId) async {}
+
+  @override
+  Future<int> usedBytes() async => 0;
+
+  @override
+  Future<void> clear() async {}
 }

@@ -47,6 +47,9 @@ class _PlaybackProgressBarState extends ConsumerState<PlaybackProgressBar> {
   double _trackPhysicalPx = 900;
   bool _resumed = true;
 
+  /// `false` con la pestaña oculta (`TickerMode`): no publica en vano.
+  bool _visible = true;
+
   final _shown = ValueNotifier<Duration>(Duration.zero);
   final _shownSecond = ValueNotifier<int>(0);
 
@@ -57,6 +60,7 @@ class _PlaybackProgressBarState extends ConsumerState<PlaybackProgressBar> {
       widget.enabled &&
       widget.playing &&
       _resumed &&
+      _visible &&
       widget.duration > Duration.zero;
 
   Duration get _estimate {
@@ -70,6 +74,16 @@ class _PlaybackProgressBarState extends ConsumerState<PlaybackProgressBar> {
     super.initState();
     _resumed = ref.read(appResumedProvider);
     _sync();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = TickerMode.valuesOf(context).enabled;
+    if (visible != _visible) {
+      _visible = visible;
+      _sync();
+    }
   }
 
   @override

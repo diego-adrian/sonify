@@ -22,19 +22,28 @@ class _RecordingRepository implements UploadRepository {
   }
 }
 
+class _RecordingTempFiles implements UploadTempFiles {
+  int clears = 0;
+
+  @override
+  Future<void> clear() async => clears++;
+}
+
 void main() {
   late _RecordingRepository repository;
   late UploadSong uploadSong;
+  late _RecordingTempFiles tempFiles;
 
   setUp(() {
     repository = _RecordingRepository();
-    uploadSong = UploadSong(repository);
+    tempFiles = _RecordingTempFiles();
+    uploadSong = UploadSong(repository, tempFiles);
   });
 
   const wav = PickedAudioFile(
     path: '/tmp/mi tema.WAV',
     name: 'mi tema.WAV',
-    sizeBytes: 10 * 1024 * 1024,
+    sizeBytes: 8 * 1024 * 1024,
   );
 
   const cover = PickedImageFile(
@@ -116,18 +125,30 @@ void main() {
     expect(repository.received?.coverContentType, 'image/jpeg');
   });
 
-  test('acepta una miniatura de video 1280×720 (lado corto ≥ 640)', () async {
+  test('acepta una portada de cualquier tamaño', () async {
     const thumbnail = PickedImageFile(
       path: '/tmp/thumb.jpg',
       name: 'thumb.jpg',
-      sizeBytes: 150 * 1024,
-      width: 1280,
-      height: 720,
+      sizeBytes: 15 * 1024,
+      width: 120,
+      height: 90,
     );
 
     final result = await run(cover: thumbnail);
 
     expect(result, isA<Ok<String, UploadFailure>>());
+  });
+
+  test('al terminar la subida borra las copias temporales', () async {
+    await run(cover: cover);
+
+    expect(tempFiles.clears, 1);
+  });
+
+  test('si falla conserva las copias para poder reintentar', () async {
+    await run(description: 'a' * 501);
+
+    expect(tempFiles.clears, 0);
   });
 
   test('descripción vacía no se envía', () async {
@@ -157,10 +178,6 @@ void main() {
     expect(
       failureOf(await run(cover: image(bytes: UploadRules.maxCoverBytes + 1))),
       UploadFailure.coverTooLarge,
-    );
-    expect(
-      failureOf(await run(cover: image(width: 1000, height: 600))),
-      UploadFailure.coverTooSmall,
     );
     expect(
       failureOf(await run(description: 'a' * 501)),

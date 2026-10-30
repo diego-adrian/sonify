@@ -41,51 +41,62 @@ Future<void> showSongDownloadSheet(
   WidgetRef ref, {
   required Song song,
   required List<Song> list,
+}) => showModalBottomSheet<void>(
+  context: context,
+  showDragHandle: true,
+  builder: (sheetContext) => SafeArea(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: downloadTiles(
+        context,
+        ref,
+        song: song,
+        list: list,
+        close: Navigator.of(sheetContext).pop,
+      ),
+    ),
+  ),
+);
+
+/// Opciones de descarga de [song] para una hoja (también la de acciones de la
+/// biblioteca). [close] cierra la hoja antes de ejecutar la acción.
+List<Widget> downloadTiles(
+  BuildContext context,
+  WidgetRef ref, {
+  required Song song,
+  required List<Song> list,
+  required VoidCallback close,
 }) {
   final l10n = AppLocalizations.of(context);
   final state = ref.read(downloadStatesProvider)[song.id];
 
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    builder: (sheetContext) {
-      void run(Future<void> Function() action) {
-        Navigator.of(sheetContext).pop();
-        action();
-      }
+  void run(Future<void> Function() action) {
+    close();
+    action();
+  }
 
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (state == null || state == DownloadState.failed)
-              ListTile(
-                leading: Icon(
-                  state == null
-                      ? Icons.download_for_offline_outlined
-                      : Icons.refresh_rounded,
-                ),
-                title: Text(
-                  state == null ? l10n.downloadSong : l10n.downloadRetry,
-                ),
-                onTap: () => run(() => downloadSongs(context, ref, [song])),
-              ),
-            if (list.length > 1)
-              ListTile(
-                leading: const Icon(Icons.playlist_add_check_rounded),
-                title: Text(l10n.downloadList(list.length)),
-                onTap: () => run(() => downloadSongs(context, ref, list)),
-              ),
-            if (state != null)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded),
-                title: Text(l10n.downloadRemove),
-                onTap: () =>
-                    run(() => ref.read(removeDownloadProvider)(song.id)),
-              ),
-          ],
+  return [
+    if (state == null || state == DownloadState.failed)
+      ListTile(
+        leading: Icon(
+          state == null
+              ? Icons.download_for_offline_outlined
+              : Icons.refresh_rounded,
         ),
-      );
-    },
-  );
+        title: Text(state == null ? l10n.downloadSong : l10n.downloadRetry),
+        onTap: () => run(() => downloadSongs(context, ref, [song])),
+      ),
+    if (list.length > 1)
+      ListTile(
+        leading: const Icon(Icons.playlist_add_check_rounded),
+        title: Text(l10n.downloadList(list.length)),
+        onTap: () => run(() => downloadSongs(context, ref, list)),
+      ),
+    if (state != null)
+      ListTile(
+        leading: const Icon(Icons.delete_outline_rounded),
+        title: Text(l10n.downloadRemove),
+        onTap: () => run(() => ref.read(removeDownloadProvider)(song.id)),
+      ),
+  ];
 }

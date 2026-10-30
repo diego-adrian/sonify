@@ -20,21 +20,31 @@ import 'listening_cache_database.dart';
 /// downloads/users/{userId}/cache/audio/{id}.enc audio cifrado
 /// ```
 ///
-/// Al pasar de [maxBytes] se borra lo que hace más tiempo que no suena, solo
+/// Al pasar de [maxBytes], o si el teléfono se queda con menos de
+/// [minFreeBytes] libres, se borra lo que hace más tiempo que no suena, solo
 /// en ese momento (sin timers ni revisiones periódicas) y nunca la cola
-/// actual.
+/// actual. El usuario la vacía desde Descargas ([clear]).
 final class EncryptedListeningCache implements ListeningCache {
   EncryptedListeningCache({
     required Future<String> Function() root,
     required this._key,
     required this._openDatabase,
     this.maxBytes = defaultMaxBytes,
+    this._freeBytes,
+    this.minFreeBytes = defaultMinFreeBytes,
     this._clock = DateTime.now,
   }) : _rootPath = root;
 
   static const defaultMaxBytes = 300 * 1024 * 1024;
 
+  /// Lo que se deja libre en el teléfono: la caché nunca lo llena.
+  static const defaultMinFreeBytes = 1024 * 1024 * 1024;
+
   final int maxBytes;
+  final int minFreeBytes;
+
+  /// Espacio libre del teléfono (`null`: no se sabe, solo cuenta [maxBytes]).
+  final Future<int?> Function()? _freeBytes;
   final Future<String> Function() _rootPath;
   final Future<Uint8List> Function() _key;
   final ListeningCacheDatabase Function(String root) _openDatabase;
@@ -102,8 +112,22 @@ final class EncryptedListeningCache implements ListeningCache {
     await _resetTemporary(storage.root);
   });
 
-  /// Lo que ocupa la caché (para una futura pantalla de almacenamiento).
+  @override
+  Future<void> discardTemporary(String songId) => _enqueue(() async {
+    await _deleteTemporary(await _storage, songId);
+  });
+
+  @override
   Future<int> usedBytes() async => _usedBytes(await _storage);
+
+  @override
+  Future<void> clear() => _enqueue(() async {
+    final storage = await _storage;
+    await storage.db.delete(storage.db.cachedSongs).go();
+    final audio = Directory(p.join(storage.root, 'audio'));
+    if (await audio.exists()) await audio.delete(recursive: true);
+    await audio.create(recursive: true);
+  });
 
   Future<void> dispose() async {
     await _serial;
@@ -175,17 +199,26 @@ final class EncryptedListeningCache implements ListeningCache {
   /// Borra lo que hace más tiempo que no suena hasta volver a caber.
   Future<void> _evict(_Storage storage, {required String keep}) async {
     var used = await _usedBytes(storage);
-    if (used <= maxBytes) return;
+    final limit = await _limit(used);
+    if (used <= limit) return;
     final oldestFirst = await (storage.db.select(
       storage.db.cachedSongs,
     )..orderBy([(row) => OrderingTerm.asc(row.lastPlayedAt)])).get();
     for (final row in oldestFirst) {
-      if (used <= maxBytes) break;
+      if (used <= limit) break;
       if (row.songId == keep || _protected.contains(row.songId)) continue;
       await _deleteIfExists(File(p.join(storage.root, row.audioFile)));
       await _deleteRow(storage, row.songId);
       used -= row.sizeBytes;
     }
+  }
+
+  /// [maxBytes], o menos si el teléfono se está quedando sin espacio.
+  Future<int> _limit(int used) async {
+    final free = await _freeBytes?.call();
+    if (free == null) return maxBytes;
+    final room = used + free - minFreeBytes;
+    return room < 0 ? 0 : (room < maxBytes ? room : maxBytes);
   }
 
   Future<int> _usedBytes(_Storage storage) async {

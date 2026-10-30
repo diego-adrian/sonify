@@ -56,6 +56,17 @@ final class FakeCatalogRepository implements CatalogRepository {
   Future<Result<List<Genre>, CatalogFailure>> getGenres() async =>
       const Ok(_genres);
 
+  @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) async {
+    final needle = query.toLowerCase();
+    return Ok([
+      for (final song in _songs)
+        if (song.title.toLowerCase().contains(needle) ||
+            song.artistName.toLowerCase().contains(needle))
+          song,
+    ]);
+  }
+
   /// Cursor por id (los ids del fake ya están en orden).
   @override
   Future<Result<CatalogPage, CatalogFailure>> getSongs({

@@ -24,9 +24,15 @@ class NowPlayingHeader extends StatelessWidget {
     required this.onShuffle,
     required this.onRepeat,
     required this.onSeek,
+    this.loading = false,
   });
 
   final Song song;
+
+  /// Todavía no se sabe qué canción va arriba (ver
+  /// `currentSongSettledProvider`): indicador de carga en la portada, textos
+  /// ocultos y controles desactivados, sin cambiar el tamaño del bloque.
+  final bool loading;
 
   /// `true` si [song] es la que está cargada en el reproductor.
   final bool isLoaded;
@@ -74,41 +80,67 @@ class NowPlayingHeader extends StatelessWidget {
                 cover: song.coverLarge ?? song.cover,
                 size: coverSize,
                 circular: true,
+                loading: loading,
+                showProgress: true,
               ),
             ),
           ),
           const SizedBox(height: 30),
-          Text(
-            song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.headline.copyWith(color: scheme.onSurface),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            song.artistName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.body.copyWith(color: scheme.onSurfaceVariant),
+          // Oculto pero ocupando su lugar (ni lector de pantalla ni toques).
+          Visibility(
+            visible: !loading,
+            maintainState: true,
+            maintainAnimation: true,
+            maintainSize: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  song.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.headline.copyWith(
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // La descripción o, si no tiene, el artista.
+                Text(
+                  song.descriptionOrArtist,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 22),
-          PlaybackProgressBar(
-            duration: duration,
-            enabled: isLoaded,
-            playing: playing && !buffering,
-            onSeek: onSeek,
-          ),
-          const SizedBox(height: 18),
-          _Controls(
-            playing: playing,
-            buffering: buffering,
-            shuffle: shuffle,
-            repeat: repeat,
-            onPlayPause: onPlayPause,
-            onPrevious: onPrevious,
-            onNext: onNext,
-            onShuffle: onShuffle,
-            onRepeat: onRepeat,
+          IgnorePointer(
+            ignoring: loading,
+            child: Column(
+              children: [
+                PlaybackProgressBar(
+                  duration: loading ? Duration.zero : duration,
+                  enabled: isLoaded && !loading,
+                  playing: playing && !buffering,
+                  onSeek: onSeek,
+                ),
+                const SizedBox(height: 18),
+                _Controls(
+                  playing: playing,
+                  buffering: buffering,
+                  shuffle: shuffle,
+                  repeat: repeat,
+                  onPlayPause: onPlayPause,
+                  onPrevious: onPrevious,
+                  onNext: onNext,
+                  onShuffle: onShuffle,
+                  onRepeat: onRepeat,
+                ),
+              ],
+            ),
           ),
         ],
       ),

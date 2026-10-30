@@ -1,9 +1,12 @@
 // Reglas de subida compartidas por create-upload y complete-upload.
 
-/** Tamaño máximo del archivo original (WAV de ~10 min). */
-export const MAX_ORIGINAL_BYTES = 200 * 1024 * 1024;
+/** Tamaño máximo del archivo original (un MP3/M4A de ~5 min). */
+export const MAX_ORIGINAL_BYTES = 10 * 1024 * 1024;
 
-/** Subidas por usuario cada 24 h (abuso y costos). */
+/**
+ * Subidas por usuario cada 24 h (abuso y costos). Solo suben los admins:
+ * lo aplica la base (trigger `songs_enforce_admin_upload`).
+ */
 export const DAILY_UPLOAD_LIMIT = 20;
 
 export const UPLOAD_URL_TTL_SECONDS = 15 * 60;
@@ -23,7 +26,7 @@ export const CONTENT_TYPES: Record<string, string> = {
 export const LICENSES = ['cc0', 'cc_by', 'cc_by_sa', 'cc_by_nc', 'cc_by_nc_sa'];
 
 /** Portada original; el transcodificador genera las miniaturas WebP. */
-export const MAX_COVER_BYTES = 10 * 1024 * 1024;
+export const MAX_COVER_BYTES = 3 * 1024 * 1024;
 
 export const COVER_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg',

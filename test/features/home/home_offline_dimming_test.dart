@@ -15,6 +15,7 @@ import 'package:sonify/features/downloads/domain/download_entry.dart';
 
 import '../../helpers/fake_audio_player.dart';
 import '../../helpers/fake_download_repository.dart';
+import '../../helpers/fake_library_repository.dart';
 import '../../helpers/fake_network_status.dart';
 
 final class _CountingCatalog implements CatalogRepository {
@@ -22,6 +23,10 @@ final class _CountingCatalog implements CatalogRepository {
 
   @override
   Future<Result<List<Genre>, CatalogFailure>> getGenres() async => const Ok([]);
+
+  @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) async =>
+      const Ok([]);
 
   @override
   Future<Result<CatalogPage, CatalogFailure>> getSongs({
@@ -55,6 +60,13 @@ void main() {
     (tester) async {
       tester.view.physicalSize = const Size(1320, 2868);
       tester.view.devicePixelRatio = 3;
+      // La onda de lo que suena se anima sin fin: con "reducir movimiento"
+      // queda quieta y pumpAndSettle puede terminar.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
       addTearDown(tester.view.reset);
 
       final auth = FakeAuthRepository(latency: Duration.zero);
@@ -76,6 +88,9 @@ void main() {
             authRepositoryProvider.overrideWithValue(auth),
             audioPlayerProvider.overrideWithValue(player),
             downloadRepositoryProvider.overrideWithValue(downloads),
+            libraryRepositoryProvider.overrideWithValue(
+              FakeLibraryRepository(),
+            ),
             networkStatusProvider.overrideWithValue(network),
             catalogRepositoryProvider.overrideWithValue(catalog),
           ],

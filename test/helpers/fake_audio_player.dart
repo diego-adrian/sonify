@@ -48,6 +48,15 @@ class FakeAudioPlayer implements AudioPlayerPort {
   @override
   Future<void> pause() async => _set(_copy(playing: false));
 
+  /// Lo último que llegó con [updateSongs].
+  List<Song> updated = const [];
+
+  @override
+  void updateSongs(Iterable<Song> songs) => updated = songs.toList();
+
+  @override
+  Future<void> togglePlayback() => state.playing ? pause() : play();
+
   @override
   Future<void> seek(Duration position) async {}
 

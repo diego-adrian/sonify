@@ -68,8 +68,11 @@ final class PlaybackRecovery {
     _retryTimer = null;
   }
 
-  /// La pista volvió a sonar bien.
+  /// La pista volvió a sonar bien. Un "listo" de la pista que falló (p. ej.
+  /// al pausarla, con audio aún en el búfer) no cuenta: se cortarían los
+  /// reintentos que faltan.
   void recovered() {
+    if (_needsReload) return;
     _autoRetries = 0;
     _resumeWanted = false;
   }

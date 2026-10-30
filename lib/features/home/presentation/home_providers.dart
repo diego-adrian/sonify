@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/online_provider.dart';
 import '../../catalog/domain/song.dart';
 import '../../catalog/presentation/catalog_providers.dart';
 import '../../player/presentation/player_providers.dart';
@@ -28,6 +29,16 @@ final currentSongProvider = Provider<Song?>((ref) {
   Song? byId(List<Song> list) =>
       list.where((song) => song.id == id).firstOrNull;
   return byId(playable) ?? playable.firstOrNull ?? byId(songs) ?? songs.first;
+});
+
+/// `false` mientras [currentSongProvider] todavía puede cambiar sola: al abrir
+/// la app se lista lo descargado y, al llegar el catálogo, la canción de
+/// arriba pasaría a otra. Mientras tanto el reproductor grande muestra un
+/// indicador de carga en vez de saltar de una portada a otra.
+final currentSongSettledProvider = Provider<bool>((ref) {
+  if (ref.watch(playbackProvider).value?.current != null) return true;
+  if (!ref.watch(isOnlineProvider)) return true;
+  return ref.watch(songsProvider.select((s) => s.hasValue || s.hasError));
 });
 
 /// Anterior / siguiente en el catálogo (con vuelta al inicio).

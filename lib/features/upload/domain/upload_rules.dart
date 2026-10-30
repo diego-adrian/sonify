@@ -1,15 +1,11 @@
 /// Mismas reglas que `supabase/functions/_shared/upload_rules.ts`; el
 /// servidor las vuelve a comprobar.
 abstract final class UploadRules {
-  static const maxOriginalBytes = 200 * 1024 * 1024;
+  static const maxOriginalBytes = 10 * 1024 * 1024;
   static const maxTitleLength = 120;
   static const maxDescriptionLength = 500;
 
-  static const maxCoverBytes = 10 * 1024 * 1024;
-
-  /// Lado mínimo de la portada (se recorta al centro si no es cuadrada).
-  /// 640 px como Spotify: admite miniaturas de video 1280×720 recortadas.
-  static const minCoverSide = 640;
+  static const maxCoverBytes = 3 * 1024 * 1024;
 
   static const contentTypes = {
     'wav': 'audio/wav',

@@ -244,6 +244,18 @@ abstract class AppLocalizations {
   /// **'Subir canción'**
   String get uploadTitle;
 
+  /// No description provided for @themeToDark.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar a modo oscuro'**
+  String get themeToDark;
+
+  /// No description provided for @themeToLight.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar a modo claro'**
+  String get themeToLight;
+
   /// No description provided for @uploadPickFile.
   ///
   /// In es, this message translates to:
@@ -253,7 +265,7 @@ abstract class AppLocalizations {
   /// No description provided for @uploadFileHint.
   ///
   /// In es, this message translates to:
-  /// **'WAV, FLAC, MP3 o M4A · hasta 200 MB'**
+  /// **'MP3, M4A, WAV o FLAC · hasta 10 MB'**
   String get uploadFileHint;
 
   /// No description provided for @uploadSongTitle.
@@ -337,7 +349,7 @@ abstract class AppLocalizations {
   /// No description provided for @uploadErrorTooLarge.
   ///
   /// In es, this message translates to:
-  /// **'El archivo supera los 200 MB.'**
+  /// **'El archivo supera los 10 MB. Prueba con MP3 o M4A.'**
   String get uploadErrorTooLarge;
 
   /// No description provided for @uploadErrorDailyLimit.
@@ -367,7 +379,7 @@ abstract class AppLocalizations {
   /// No description provided for @uploadCoverHint.
   ///
   /// In es, this message translates to:
-  /// **'Cuadrada, mín. 640 px\nJPG, PNG o WebP'**
+  /// **'Cuadrada\nJPG, PNG o WebP · hasta 3 MB'**
   String get uploadCoverHint;
 
   /// No description provided for @uploadDescription.
@@ -397,14 +409,8 @@ abstract class AppLocalizations {
   /// No description provided for @uploadErrorCoverTooLarge.
   ///
   /// In es, this message translates to:
-  /// **'La portada supera los 10 MB.'**
+  /// **'La portada supera los 3 MB.'**
   String get uploadErrorCoverTooLarge;
-
-  /// No description provided for @uploadErrorCoverTooSmall.
-  ///
-  /// In es, this message translates to:
-  /// **'La portada debe medir al menos 640 × 640 px.'**
-  String get uploadErrorCoverTooSmall;
 
   /// No description provided for @downloads.
   ///
@@ -429,6 +435,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Borrar todo'**
   String get downloadsDeleteAll;
+
+  /// No description provided for @listeningCacheInfo.
+  ///
+  /// In es, this message translates to:
+  /// **'Sonify guarda automáticamente en caché las canciones que escuchaste recientemente. Es similar al modo offline, con la única diferencia de que cuando se apague o se reinicie tu dispositivo se borrarán sin previo aviso. Si también quieres liberar espacio de las canciones en caché, puedes borrarlas con el botón Vaciar caché de Sonify.'**
+  String get listeningCacheInfo;
+
+  /// No description provided for @listeningCacheClear.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar caché de Sonify'**
+  String get listeningCacheClear;
+
+  /// No description provided for @listeningCacheClearConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Vaciar las canciones escuchadas que se guardaron solas? Tus descargas no se borran; lo demás volverá a usar la red.'**
+  String get listeningCacheClearConfirm;
 
   /// No description provided for @downloadsDeleteAllConfirm.
   ///
@@ -513,6 +537,360 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Descargando {percent}%'**
   String downloadProgress(int percent);
+
+  /// No description provided for @uploadErrorNotAdmin.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo los administradores pueden subir canciones.'**
+  String get uploadErrorNotAdmin;
+
+  /// No description provided for @navHome.
+  ///
+  /// In es, this message translates to:
+  /// **'Inicio'**
+  String get navHome;
+
+  /// No description provided for @navSearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar'**
+  String get navSearch;
+
+  /// No description provided for @navLibrary.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu biblioteca'**
+  String get navLibrary;
+
+  /// No description provided for @navLibraryShort.
+  ///
+  /// In es, this message translates to:
+  /// **'Biblioteca'**
+  String get navLibraryShort;
+
+  /// No description provided for @navPremium.
+  ///
+  /// In es, this message translates to:
+  /// **'Premium'**
+  String get navPremium;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Canción o artista'**
+  String get searchHint;
+
+  /// No description provided for @searchPrompt.
+  ///
+  /// In es, this message translates to:
+  /// **'Busca en todo el catálogo por canción o artista y guarda las que quieras escuchar.'**
+  String get searchPrompt;
+
+  /// No description provided for @searchNoResults.
+  ///
+  /// In es, this message translates to:
+  /// **'No encontramos «{query}».'**
+  String searchNoResults(String query);
+
+  /// No description provided for @searchError.
+  ///
+  /// In es, this message translates to:
+  /// **'No pudimos buscar. Inténtalo de nuevo.'**
+  String get searchError;
+
+  /// No description provided for @searchOffline.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión: buscando en lo que tienes en el teléfono.'**
+  String get searchOffline;
+
+  /// No description provided for @clearSearch.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar búsqueda'**
+  String get clearSearch;
+
+  /// No description provided for @librarySavedSongs.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus canciones'**
+  String get librarySavedSongs;
+
+  /// No description provided for @librarySongCount.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =0{Sin canciones} =1{1 canción} other{{count} canciones}}'**
+  String librarySongCount(int count);
+
+  /// No description provided for @librarySongCountLimit.
+  ///
+  /// In es, this message translates to:
+  /// **'{count} de {limit} canciones'**
+  String librarySongCountLimit(int count, int limit);
+
+  /// No description provided for @libraryPlaylists.
+  ///
+  /// In es, this message translates to:
+  /// **'Playlists'**
+  String get libraryPlaylists;
+
+  /// No description provided for @libraryNewPlaylist.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva playlist'**
+  String get libraryNewPlaylist;
+
+  /// No description provided for @libraryPlaylistsEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una playlist para separar tus canciones, por ejemplo «Para el auto».'**
+  String get libraryPlaylistsEmpty;
+
+  /// No description provided for @librarySongsEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no guardaste canciones.\nBúscalas en Buscar y guárdalas para escucharlas.'**
+  String get librarySongsEmpty;
+
+  /// No description provided for @libraryPlaylistEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Mantén presionada una canción y elige «Agregar a una playlist».'**
+  String get libraryPlaylistEmpty;
+
+  /// No description provided for @libraryError.
+  ///
+  /// In es, this message translates to:
+  /// **'No pudimos cargar tu biblioteca.'**
+  String get libraryError;
+
+  /// No description provided for @playlistName.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre de la playlist'**
+  String get playlistName;
+
+  /// No description provided for @playlistCreate.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear'**
+  String get playlistCreate;
+
+  /// No description provided for @playlistRename.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar nombre'**
+  String get playlistRename;
+
+  /// No description provided for @playlistSave.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar'**
+  String get playlistSave;
+
+  /// No description provided for @playlistDelete.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrar playlist'**
+  String get playlistDelete;
+
+  /// No description provided for @playlistDeleteConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Borrar «{name}»? Las canciones siguen en tu biblioteca.'**
+  String playlistDeleteConfirm(String name);
+
+  /// No description provided for @playlistMore.
+  ///
+  /// In es, this message translates to:
+  /// **'Más opciones'**
+  String get playlistMore;
+
+  /// No description provided for @songSave.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar en tu biblioteca'**
+  String get songSave;
+
+  /// No description provided for @songUnsave.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar de tu biblioteca'**
+  String get songUnsave;
+
+  /// No description provided for @songSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardada en tu biblioteca'**
+  String get songSaved;
+
+  /// No description provided for @songUnsaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitada de tu biblioteca'**
+  String get songUnsaved;
+
+  /// No description provided for @songSavedTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardada'**
+  String get songSavedTooltip;
+
+  /// No description provided for @songAddToPlaylist.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregar a una playlist'**
+  String get songAddToPlaylist;
+
+  /// No description provided for @songAddedToPlaylist.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregada a «{name}»'**
+  String songAddedToPlaylist(String name);
+
+  /// No description provided for @songRemoveFromPlaylist.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar de esta playlist'**
+  String get songRemoveFromPlaylist;
+
+  /// No description provided for @libraryRemaining.
+  ///
+  /// In es, this message translates to:
+  /// **'{count, plural, =0{No te quedan lugares} =1{Te queda 1 de {limit}} other{Te quedan {count} de {limit}}}'**
+  String libraryRemaining(int count, int limit);
+
+  /// No description provided for @libraryErrorLimit.
+  ///
+  /// In es, this message translates to:
+  /// **'Llegaste a {limit} canciones. Quita alguna de tu biblioteca o hazte Premium.'**
+  String libraryErrorLimit(int limit);
+
+  /// No description provided for @libraryErrorNetwork.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitas conexión para cambiar tu biblioteca.'**
+  String get libraryErrorNetwork;
+
+  /// No description provided for @libraryErrorName.
+  ///
+  /// In es, this message translates to:
+  /// **'Escribe un nombre de hasta 60 caracteres.'**
+  String get libraryErrorName;
+
+  /// No description provided for @libraryErrorUnknown.
+  ///
+  /// In es, this message translates to:
+  /// **'No pudimos guardar el cambio. Inténtalo de nuevo.'**
+  String get libraryErrorUnknown;
+
+  /// No description provided for @seePremium.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver Premium'**
+  String get seePremium;
+
+  /// No description provided for @lockedTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Guárdala para escucharla'**
+  String get lockedTitle;
+
+  /// No description provided for @lockedBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Con la cuenta gratis escuchas hasta {limit} canciones guardadas, con todo: streaming, sin señal y en segundo plano.'**
+  String lockedBody(int limit);
+
+  /// No description provided for @lockedFull.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya guardaste {limit} canciones. Quita alguna de tu biblioteca o hazte Premium para escuchar sin límite.'**
+  String lockedFull(int limit);
+
+  /// No description provided for @lockedTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar para escuchar'**
+  String get lockedTooltip;
+
+  /// No description provided for @premiumTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sonify Premium'**
+  String get premiumTitle;
+
+  /// No description provided for @premiumActive.
+  ///
+  /// In es, this message translates to:
+  /// **'Eres Premium'**
+  String get premiumActive;
+
+  /// No description provided for @premiumActiveBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Guarda y escucha todas las canciones que quieras, también sin señal y en segundo plano.'**
+  String get premiumActiveBody;
+
+  /// No description provided for @premiumFreeIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin Premium puedes guardar hasta {limit} canciones, y con ellas tienes todos los beneficios:'**
+  String premiumFreeIntro(int limit);
+
+  /// No description provided for @premiumBenefitStreaming.
+  ///
+  /// In es, this message translates to:
+  /// **'Streaming en alta calidad'**
+  String get premiumBenefitStreaming;
+
+  /// No description provided for @premiumBenefitOffline.
+  ///
+  /// In es, this message translates to:
+  /// **'Escuchar sin señal (descargas)'**
+  String get premiumBenefitOffline;
+
+  /// No description provided for @premiumBenefitBackground.
+  ///
+  /// In es, this message translates to:
+  /// **'Escuchar en segundo plano y con la pantalla bloqueada'**
+  String get premiumBenefitBackground;
+
+  /// No description provided for @premiumBenefitPlaylists.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus propias playlists'**
+  String get premiumBenefitPlaylists;
+
+  /// No description provided for @premiumWithPremium.
+  ///
+  /// In es, this message translates to:
+  /// **'Con Premium'**
+  String get premiumWithPremium;
+
+  /// No description provided for @premiumUnlimited.
+  ///
+  /// In es, this message translates to:
+  /// **'Canciones sin límite en tu biblioteca'**
+  String get premiumUnlimited;
+
+  /// No description provided for @premiumUsage.
+  ///
+  /// In es, this message translates to:
+  /// **'Usas {count} de {limit}'**
+  String premiumUsage(int count, int limit);
+
+  /// No description provided for @premiumCta.
+  ///
+  /// In es, this message translates to:
+  /// **'Hazte Premium · {price} al mes'**
+  String premiumCta(String price);
+
+  /// No description provided for @premiumSoon.
+  ///
+  /// In es, this message translates to:
+  /// **'Muy pronto podrás suscribirte desde la app.'**
+  String get premiumSoon;
 }
 
 class _AppLocalizationsDelegate

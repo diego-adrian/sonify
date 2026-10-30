@@ -16,18 +16,29 @@ void main() {
   late EncryptedListeningCache cache;
   late DateTime now;
 
-  EncryptedListeningCache open({int maxBytes = 1 << 20}) =>
+  /// Espacio del teléfono sin la caché (lo libre baja a medida que guarda).
+  int? device;
+
+  int stored() => [
+    for (final f in Directory(p.join(root.path, 'audio')).listSync())
+      if (f is File) f.lengthSync(),
+  ].fold(0, (a, b) => a + b);
+
+  EncryptedListeningCache open({int maxBytes = 1 << 20, int minFree = 0}) =>
       EncryptedListeningCache(
         root: () async => root.path,
         key: () async => Uint8List.fromList(List.generate(32, (i) => i)),
         openDatabase: (_) => ListeningCacheDatabase(NativeDatabase.memory()),
         maxBytes: maxBytes,
+        freeBytes: () async => device == null ? null : device! - stored(),
+        minFreeBytes: minFree,
         clock: () => now,
       );
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('listening_cache_test');
     now = DateTime(2026, 10, 28, 12);
+    device = null;
     cache = open();
   });
 
@@ -140,6 +151,46 @@ void main() {
     expect(await File(p.join(root.path, 'audio', 'b.enc')).exists(), isFalse);
   });
 
+  test(
+    'con poco espacio libre en el teléfono guarda menos que el tope',
+    () async {
+      await cache.dispose();
+      // El tope deja 10, pero el teléfono debe quedar con 5000 bytes libres y
+      // solo tiene 1500 más: cabe una canción.
+      cache = open(maxBytes: 10 * (_audioBytes + 16), minFree: 5000);
+      device = 5000 + 1500;
+
+      for (final id in ['a', 'b', 'c']) {
+        await streamed(id);
+        await cache.finished(
+          song(id),
+          listenedEnough: true,
+          stillCurrent: false,
+        );
+        now = now.add(const Duration(minutes: 1));
+      }
+
+      final ids = {for (final s in await cache.watchSongs().first) s.id};
+      expect(ids, {'c'});
+      expect(await cache.usedBytes(), _audioBytes + 16);
+    },
+  );
+
+  test('vaciar borra todo lo guardado y deja de ocupar espacio', () async {
+    for (final id in ['a', 'b']) {
+      await streamed(id);
+      await cache.finished(song(id), listenedEnough: true, stillCurrent: false);
+    }
+    expect(await cache.usedBytes(), 2 * (_audioBytes + 16));
+
+    await cache.clear();
+
+    expect(await cache.usedBytes(), 0);
+    expect(await cache.watchSongs().first, isEmpty);
+    expect(await cache.find('a'), isNull);
+    expect(Directory(p.join(root.path, 'audio')).listSync(), isEmpty);
+  });
+
   test('nunca borra la cola actual al liberar espacio', () async {
     await cache.dispose();
     cache = open(maxBytes: 2 * (_audioBytes + 16));
@@ -166,6 +217,18 @@ void main() {
     await cache.tempPathFor('x');
 
     expect(await File(temp).exists(), isFalse);
+  });
+
+  test('discardTemporary borra el temporal solo de esa canción', () async {
+    final skipped = await streamed('a');
+    final other = await streamed('b');
+    await File('$skipped.mime').writeAsString('audio/mp4');
+
+    await cache.discardTemporary('a');
+
+    expect(await File(skipped).exists(), isFalse);
+    expect(await File('$skipped.mime').exists(), isFalse);
+    expect(await File(other).exists(), isTrue);
   });
 
   test('clearTemporary borra lo que se estaba bajando', () async {

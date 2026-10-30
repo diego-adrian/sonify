@@ -32,13 +32,22 @@ final class PlaySongs {
   }
 }
 
+/// El catálogo o la biblioteca se recargaron: la cola toma sus datos nuevos
+/// (las URLs firmadas vencen en 24–48 h).
+final class UpdateQueueSongs {
+  const UpdateQueueSongs(this._player);
+
+  final AudioPlayerPort _player;
+
+  void call(Iterable<Song> songs) => _player.updateSongs(songs);
+}
+
 final class TogglePlayback {
   const TogglePlayback(this._player);
 
   final AudioPlayerPort _player;
 
-  Future<void> call(PlaybackSnapshot state) =>
-      state.playing ? _player.pause() : _player.play();
+  Future<void> call() => _player.togglePlayback();
 }
 
 final class SeekTo {

@@ -12,9 +12,18 @@ abstract interface class AudioPlayerPort {
 
   Future<void> playQueue(List<Song> songs, {required int startIndex});
 
+  /// Datos más nuevos de canciones (p. ej. el catálogo recargado, con URLs
+  /// firmadas renovadas): las de la cola los usan la próxima vez que se
+  /// cargan. Las que no están en la cola se ignoran.
+  void updateSongs(Iterable<Song> songs);
+
   Future<void> play();
 
   Future<void> pause();
+
+  /// Pausa si suena y si no reproduce, según el estado real del reproductor
+  /// al ejecutarse (no el último que vio la pantalla).
+  Future<void> togglePlayback();
 
   Future<void> seek(Duration position);
 

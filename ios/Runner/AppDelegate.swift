@@ -1,4 +1,5 @@
 import Flutter
+import MediaPlayer
 import UIKit
 
 @main
@@ -14,6 +15,30 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SonifyStorage") {
       StorageChannel.register(messenger: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SonifyNowPlaying") {
+      NowPlayingChannel.register(messenger: registrar.messenger())
+    }
+  }
+}
+
+/// Canal `app.sonify.sonify/now_playing` (ver `sonify_audio_handler.dart`).
+enum NowPlayingChannel {
+  static func register(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.sonify.sonify/now_playing", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "renew" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      // Si el usuario limpió el reproductor de la pantalla de bloqueo, repetir
+      // los mismos datos no lo trae de vuelta: se vuelve a publicar desde cero.
+      UIApplication.shared.beginReceivingRemoteControlEvents()
+      let center = MPNowPlayingInfoCenter.default()
+      let info = center.nowPlayingInfo
+      center.nowPlayingInfo = nil
+      center.nowPlayingInfo = info
+      result(nil)
     }
   }
 }

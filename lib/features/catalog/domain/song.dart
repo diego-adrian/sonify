@@ -5,6 +5,7 @@ final class Song {
     required this.artistName,
     required this.duration,
     this.genreId,
+    this.description,
     this.cover,
     this.coverLarge,
     this.audio,
@@ -19,6 +20,16 @@ final class Song {
   final String artistName;
   final Duration duration;
   final int? genreId;
+
+  /// Un párrafo sobre la canción (opcional, hasta 500 caracteres).
+  final String? description;
+
+  /// Lo que va bajo el título en la Home y en Descargas: la descripción o,
+  /// si no tiene, el artista.
+  String get descriptionOrArtist {
+    final text = description?.trim();
+    return text == null || text.isEmpty ? artistName : text;
+  }
 
   /// Miniatura para listas. `asset:` (datos de desarrollo) o `https:` (CDN).
   final Uri? cover;

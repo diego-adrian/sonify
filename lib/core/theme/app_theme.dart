@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
 import 'app_typography.dart';
+import 'nav_bar_colors.dart';
 
 import 'sonify_colors.dart';
 
 abstract final class AppTheme {
-  /// Baja todos los estilos de Material a Light/Regular, como el Login.
+  /// Baja los estilos de Material a Light/Regular, como el Login (los
+  /// títulos de barra, en SemiBold).
   static TextTheme _lighten(TextTheme t) {
     TextStyle? light(TextStyle? s) => s?.copyWith(fontWeight: FontWeight.w300);
     TextStyle? regular(TextStyle? s) =>
         s?.copyWith(fontWeight: FontWeight.w400);
+    TextStyle? semiBold(TextStyle? s) =>
+        s?.copyWith(fontWeight: FontWeight.w600);
     return t.copyWith(
       displayLarge: light(t.displayLarge),
       displayMedium: light(t.displayMedium),
@@ -17,7 +21,8 @@ abstract final class AppTheme {
       headlineLarge: light(t.headlineLarge),
       headlineMedium: light(t.headlineMedium),
       headlineSmall: light(t.headlineSmall),
-      titleLarge: regular(t.titleLarge),
+      // Títulos de barra (como AppTypography.title).
+      titleLarge: semiBold(t.titleLarge),
       titleMedium: regular(t.titleMedium),
       titleSmall: regular(t.titleSmall),
       bodyLarge: light(t.bodyLarge),
@@ -38,6 +43,10 @@ abstract final class AppTheme {
     onSurface: SonifyColors.lightOnSurface,
     onSurfaceVariant: SonifyColors.lightOnSurfaceVariant,
     outline: SonifyColors.lightOutline,
+    navBar: const NavBarColors(
+      background: SonifyColors.lightNavBar,
+      inactive: SonifyColors.lightNavInactive,
+    ),
     primaryContainerAlpha: 0.12,
   );
 
@@ -48,6 +57,10 @@ abstract final class AppTheme {
     onSurface: SonifyColors.darkOnSurface,
     onSurfaceVariant: SonifyColors.darkOnSurfaceVariant,
     outline: SonifyColors.darkOutline,
+    navBar: const NavBarColors(
+      background: SonifyColors.darkNavBar,
+      inactive: SonifyColors.darkNavInactive,
+    ),
     primaryContainerAlpha: 0.20,
   );
 
@@ -58,6 +71,7 @@ abstract final class AppTheme {
     required Color onSurface,
     required Color onSurfaceVariant,
     required Color outline,
+    required NavBarColors navBar,
     required double primaryContainerAlpha,
   }) {
     final primaryContainer = Color.alphaBlend(
@@ -72,6 +86,9 @@ abstract final class AppTheme {
       onPrimaryContainer: SonifyColors.primary,
       secondary: SonifyColors.primary,
       onSecondary: SonifyColors.onPrimary,
+      // Solo para marcar lo que está sonando (onda en la fila).
+      tertiary: SonifyColors.nowPlaying,
+      onTertiary: SonifyColors.lightOnSurface,
       error: SonifyColors.primary,
       onError: SonifyColors.onPrimary,
       surface: surface,
@@ -87,6 +104,7 @@ abstract final class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: surface,
       fontFamily: fontFamily,
+      extensions: [navBar],
     );
 
     return base.copyWith(textTheme: _lighten(base.textTheme));

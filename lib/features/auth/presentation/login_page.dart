@@ -64,6 +64,13 @@ class LoginPage extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  // Símbolo de la marca (branding/sonify_simbolo.svg).
+                  Image.asset(
+                    'assets/images/sonify_symbol.png',
+                    width: 120,
+                    excludeFromSemantics: true,
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     l10n.appTitle,
                     style: AppTypography.brand.copyWith(

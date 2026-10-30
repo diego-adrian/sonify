@@ -12,6 +12,9 @@ class Downloads extends Table {
   TextColumn get title => text()();
   TextColumn get artistName => text()();
   IntColumn get genreId => integer().nullable()();
+
+  /// Se muestra bajo el título también sin red (v2).
+  TextColumn get description => text().nullable()();
   IntColumn get durationMs => integer()();
   TextColumn get audioUrl => text()();
   TextColumn get coverUrl => text().nullable()();
@@ -38,5 +41,12 @@ class DownloadDatabase extends _$DownloadDatabase {
   DownloadDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.addColumn(downloads, downloads.description);
+    },
+  );
 }

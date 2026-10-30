@@ -15,6 +15,12 @@ abstract interface class CoverImagePicker {
   Future<PickedImageFile?> pick();
 }
 
+/// Copias temporales que deja el selector de archivos.
+abstract interface class UploadTempFiles {
+  /// Las borra. Solo si no hay ninguna subida en curso: la subida las lee.
+  Future<void> clear();
+}
+
 /// Subida de una canción: el backend registra la canción a nombre del
 /// usuario y el archivo va directo al almacenamiento.
 abstract interface class UploadRepository {

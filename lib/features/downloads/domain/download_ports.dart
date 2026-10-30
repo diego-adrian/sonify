@@ -56,3 +56,10 @@ abstract interface class StorageSpace {
   /// Bytes libres para la app, o `null` si no se puede saber.
   Future<int?> freeBytes();
 }
+
+/// Las mismas canciones con URLs firmadas nuevas (vencen en 24–48 h): para
+/// reintentar una descarga que esperó demasiado (p. ej. sin Wi-Fi). Las que
+/// no se pudieron pedir (sin red, ya no visibles) no vienen.
+abstract interface class SongRefresher {
+  Future<List<Song>> fresh(List<String> songIds);
+}

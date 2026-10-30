@@ -9,9 +9,9 @@ import '../../auth/domain/app_user.dart';
 import '../../catalog/domain/song.dart';
 import '../../catalog/presentation/catalog_providers.dart';
 import '../../catalog/presentation/widgets/song_tile.dart';
-import '../../downloads/presentation/download_actions.dart';
-import '../../downloads/presentation/downloads_page.dart';
 import '../../downloads/presentation/widgets/song_download_button.dart';
+import '../../library/presentation/library_actions.dart';
+import '../../library/presentation/library_providers.dart';
 import '../../player/domain/playback_snapshot.dart';
 import '../../player/presentation/player_providers.dart';
 import '../../upload/presentation/upload_page.dart';
@@ -20,6 +20,7 @@ import 'widgets/mini_player_bar.dart';
 import 'widgets/now_playing_header.dart';
 import 'widgets/user_avatar.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/theme_mode_provider.dart';
 
 /// Home (Figma node 106:97 "Home V1 Oficial").
 class HomePage extends ConsumerWidget {
@@ -135,6 +136,7 @@ class _HomeContentState extends ConsumerState<_HomeContent> {
     final feed = ref.watch(songsProvider).value;
     final playback = ref.watch(playbackProvider).value ?? PlaybackSnapshot.idle;
     final isLoaded = playback.current?.id == current.id;
+    final access = ref.watch(songAccessProvider);
 
     // Sin red, la cola y anterior/siguiente solo usan lo descargado.
     final playable = {
@@ -157,9 +159,26 @@ class _HomeContentState extends ConsumerState<_HomeContent> {
       }
     }
 
+    // Cuenta gratis y canción no guardada: ofrece guardarla y la reproduce.
+    void unlock(Song song) => showLockedSongSheet(
+      context,
+      ref,
+      song: song,
+      onSaved: (saved) {
+        // Tras guardarla ya está en la cola de lo que se puede escuchar.
+        final queue = catalog();
+        ref.read(playSongsProvider)(
+          queue.any((song) => song.id == saved.id) ? queue : [saved],
+          saved,
+        );
+      },
+    );
+
     void playPause() => isLoaded
-        ? ref.read(togglePlaybackProvider)(playback)
-        : playFrom(current);
+        ? ref.read(togglePlaybackProvider)()
+        : access.canPlay(current)
+        ? playFrom(current)
+        : unlock(current);
 
     // Deslizar hacia abajo trae las canciones nuevas (mientras recarga se
     // sigue viendo la lista anterior).
@@ -194,6 +213,7 @@ class _HomeContentState extends ConsumerState<_HomeContent> {
                 await ref.read(cycleRepeatProvider)(playback);
               },
               onSeek: (position) => ref.read(seekToProvider)(position),
+              loading: !ref.watch(currentSongSettledProvider),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -202,18 +222,42 @@ class _HomeContentState extends ConsumerState<_HomeContent> {
             itemCount: list.length,
             itemBuilder: (context, index) {
               final song = list[index];
-              final available = playable.contains(song.id);
+              final locked = !access.canPlay(song);
+              final available = locked || playable.contains(song.id);
+              final isCurrent = playback.current?.id == song.id;
+              final nowPlaying = isCurrent && playback.playing;
+              void open() => locked
+                  ? unlock(song)
+                  // La que ya suena no vuelve a empezar: tocarla la retoma
+                  // si estaba en pausa.
+                  : isCurrent
+                  ? (nowPlaying ? null : ref.read(togglePlaybackProvider)())
+                  : playFrom(song);
               return SongTile(
                 song: song,
+                // La descripción o, si no tiene, el artista.
+                subtitle: song.descriptionOrArtist,
+                locked: locked,
+                nowPlaying: nowPlaying,
                 enabled: available,
-                actionTooltip: available
+                actionTooltip: locked
+                    ? l10n.lockedTooltip
+                    : nowPlaying
+                    ? l10n.pause
+                    : available
                     ? l10n.playSong(song.title)
                     : l10n.songNeedsConnection,
-                onTap: () => playFrom(song),
-                onAction: () => playFrom(song),
-                secondaryAction: SongDownloadButton(song: song, list: list),
+                onTap: open,
+                // La onda pausa lo que suena.
+                onAction: nowPlaying
+                    ? () => ref.read(togglePlaybackProvider)()
+                    : open,
+                // Solo se descarga lo que se puede escuchar.
+                secondaryAction: locked
+                    ? null
+                    : SongDownloadButton(song: song, list: catalog()),
                 onLongPress: () =>
-                    showSongDownloadSheet(context, ref, song: song, list: list),
+                    showSongActionsSheet(context, ref, song: song, list: list),
               );
             },
           ),
@@ -290,7 +334,12 @@ class _HomeContentState extends ConsumerState<_HomeContent> {
               buffering: isLoaded && playback.buffering,
               onTap: _scrollToTop,
               onPlayPause: playPause,
+              onPrevious: () => step(-1),
               onNext: () => step(1),
+              loaded: isLoaded,
+              duration: isLoaded
+                  ? (playback.duration ?? current.duration)
+                  : current.duration,
             ),
           ),
         ),
@@ -335,20 +384,16 @@ class _TopBar extends ConsumerWidget {
               style: AppTypography.body.copyWith(color: scheme.onSurface),
             ),
           ),
-          IconButton(
-            tooltip: l10n.uploadTitle,
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute<void>(builder: (_) => const UploadPage())),
-            icon: const Icon(Icons.add_rounded),
-          ),
-          IconButton(
-            tooltip: l10n.downloads,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const DownloadsPage()),
+          const _ThemeToggle(),
+          // Solo los admins suben canciones (el backend también lo exige).
+          if (ref.watch(accountProvider.select((account) => account.isAdmin)))
+            IconButton(
+              tooltip: l10n.uploadTitle,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const UploadPage()),
+              ),
+              icon: const Icon(Icons.add_rounded),
             ),
-            icon: const Icon(Icons.download_for_offline_outlined),
-          ),
         ],
       ),
     );
@@ -372,6 +417,24 @@ class _TopBar extends ConsumerWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// Luna en modo claro (pasa a oscuro) y sol en modo oscuro (pasa a claro).
+/// La elección se recuerda; sin elegir, la app sigue al sistema.
+class _ThemeToggle extends ConsumerWidget {
+  const _ThemeToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final shown = Theme.of(context).brightness;
+    final dark = shown == Brightness.dark;
+    return IconButton(
+      tooltip: dark ? l10n.themeToLight : l10n.themeToDark,
+      onPressed: () => ref.read(themeModeProvider.notifier).toggle(shown),
+      icon: Icon(dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
     );
   }
 }

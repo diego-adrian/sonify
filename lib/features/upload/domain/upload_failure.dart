@@ -7,8 +7,10 @@ enum UploadFailure {
   tooLarge,
   coverUnsupported,
   coverTooLarge,
-  coverTooSmall,
   dailyLimit,
+
+  /// Solo los admins suben canciones.
+  notAdmin,
   network,
   unknown,
 }

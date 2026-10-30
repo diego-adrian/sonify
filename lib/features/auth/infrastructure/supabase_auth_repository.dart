@@ -35,6 +35,10 @@ final class SupabaseAuthRepository implements AuthRepository {
     yield _currentUser();
     yield* _auth.onAuthStateChange
         .map((state) => _mapUser(state.session?.user))
+        // Supabase emite como error que no pudo renovar el token (p. ej. sin
+        // red al volver a la app). La sesión guardada sigue valiendo; si de
+        // verdad venció, llega como `signedOut`.
+        .handleError((Object error) => debugPrint('Sesión sin renovar: $error'))
         .distinct();
   }
 

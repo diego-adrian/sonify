@@ -164,6 +164,7 @@ final class SupabaseUploadRepository implements UploadRepository {
     return switch ((error.status, code)) {
       (_, 'unsupported_cover_type') => UploadFailure.coverUnsupported,
       (_, 'cover_too_large') => UploadFailure.coverTooLarge,
+      (_, 'not_admin') => UploadFailure.notAdmin,
       (413, _) => UploadFailure.tooLarge,
       (415, _) => UploadFailure.unsupportedType,
       (429, _) => UploadFailure.dailyLimit,

@@ -20,6 +20,10 @@ final class _HangingRemote implements CatalogRepository {
       Completer<Result<List<Genre>, CatalogFailure>>().future;
 
   @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) =>
+      Completer<Result<List<Song>, CatalogFailure>>().future;
+
+  @override
   Future<Result<CatalogPage, CatalogFailure>> getSongs({
     int? genreId,
     int limit = catalogPageSize,
@@ -34,6 +38,10 @@ final class _Remote implements CatalogRepository {
 
   @override
   Future<Result<List<Genre>, CatalogFailure>> getGenres() async => const Ok([]);
+
+  @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) async =>
+      const Ok([]);
 
   @override
   Future<Result<CatalogPage, CatalogFailure>> getSongs({
@@ -77,6 +85,15 @@ final class _Cache implements ListeningCache {
 
   @override
   Future<void> clearTemporary() async {}
+
+  @override
+  Future<void> discardTemporary(String songId) async {}
+
+  @override
+  Future<int> usedBytes() async => 0;
+
+  @override
+  Future<void> clear() async {}
 }
 
 void main() {
@@ -187,4 +204,46 @@ void main() {
     );
     await downloads.dispose();
   });
+
+  test(
+    'sin red busca por título o artista en lo descargado, sin tildes',
+    () async {
+      final downloads = FakeDownloadRepository()
+        ..entries.addAll([
+          const DownloadEntry(
+            song: Song(
+              id: 'a',
+              title: 'Canción del Sótano',
+              artistName: 'Los de Abajo',
+              duration: Duration(minutes: 3),
+            ),
+            state: DownloadState.done,
+          ),
+          const DownloadEntry(
+            song: Song(
+              id: 'b',
+              title: 'Otra',
+              artistName: 'José Pérez',
+              duration: Duration(minutes: 3),
+            ),
+            state: DownloadState.done,
+          ),
+        ]);
+      final catalog = OfflineFallbackCatalogRepository(
+        _HangingRemote(),
+        downloads,
+        timeout: const Duration(milliseconds: 10),
+      );
+
+      List<String> ids(Result<List<Song>, CatalogFailure> result) => [
+        for (final song in (result as Ok<List<Song>, CatalogFailure>).value)
+          song.id,
+      ];
+
+      expect(ids(await catalog.searchSongs('SOTANO')), ['a']);
+      expect(ids(await catalog.searchSongs('perez')), ['b']);
+      expect(ids(await catalog.searchSongs('nada')), isEmpty);
+      await downloads.dispose();
+    },
+  );
 }

@@ -7,9 +7,10 @@ import '../domain/upload_request.dart';
 import '../domain/upload_rules.dart';
 
 final class UploadSong {
-  const UploadSong(this._repository);
+  const UploadSong(this._repository, this._tempFiles);
 
   final UploadRepository _repository;
+  final UploadTempFiles _tempFiles;
 
   Future<Result<String, UploadFailure>> call({
     required PickedAudioFile? file,
@@ -46,13 +47,9 @@ final class UploadSong {
       if (cover.sizeBytes > UploadRules.maxCoverBytes) {
         return const Err(UploadFailure.coverTooLarge);
       }
-      final shortest = cover.width < cover.height ? cover.width : cover.height;
-      if (shortest < UploadRules.minCoverSide) {
-        return const Err(UploadFailure.coverTooSmall);
-      }
     }
 
-    return _repository.upload(
+    final result = await _repository.upload(
       UploadRequest(
         file: file,
         contentType: contentType,
@@ -65,5 +62,7 @@ final class UploadSong {
       ),
       onProgress: onProgress,
     );
+    if (result is Ok) await _tempFiles.clear();
+    return result;
   }
 }

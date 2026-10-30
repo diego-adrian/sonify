@@ -1,14 +1,16 @@
-import 'dart:ui';
+import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sonify/app.dart';
 import 'package:sonify/core/di/providers.dart';
+import 'package:sonify/features/catalog/presentation/widgets/now_playing_bars.dart';
 import 'package:sonify/features/auth/infrastructure/fake_auth_repository.dart';
 
 import '../../../helpers/fake_audio_player.dart';
 import '../../../helpers/fake_catalog_repository.dart';
 import '../../../helpers/fake_download_repository.dart';
+import '../../../helpers/fake_library_repository.dart';
 import '../../../helpers/fake_network_status.dart';
 
 void main() {
@@ -18,6 +20,11 @@ void main() {
     // Pantalla de iPhone (440×956 pt).
     tester.view.physicalSize = const Size(1320, 2868);
     tester.view.devicePixelRatio = 3;
+    // La onda de lo que suena se anima sin fin: con "reducir movimiento"
+    // queda quieta y pumpAndSettle puede terminar.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     addTearDown(tester.view.reset);
 
     final repository = FakeAuthRepository(latency: Duration.zero);
@@ -33,6 +40,7 @@ void main() {
           authRepositoryProvider.overrideWithValue(repository),
           audioPlayerProvider.overrideWithValue(player),
           downloadRepositoryProvider.overrideWithValue(downloads),
+          libraryRepositoryProvider.overrideWithValue(FakeLibraryRepository()),
           networkStatusProvider.overrideWithValue(FakeNetworkStatus()),
           catalogRepositoryProvider.overrideWithValue(
             const FakeCatalogRepository(),
@@ -60,7 +68,17 @@ void main() {
     await tester.tap(find.byTooltip('Reproducir'));
     await tester.pumpAndSettle();
     expect(player.state.current?.title, 'Mariposa Traicionera');
-    expect(find.byTooltip('Pausar'), findsOneWidget);
+    // Pausar en el reproductor grande y en la fila, que muestra la onda.
+    expect(find.byTooltip('Pausar'), findsNWidgets(2));
+    expect(find.byType(NowPlayingBars), findsOneWidget);
+
+    // La onda pausa: la fila vuelve a ▷.
+    await tester.tap(find.byType(NowPlayingBars));
+    await tester.pumpAndSettle();
+    expect(player.state.playing, isFalse);
+    expect(find.byType(NowPlayingBars), findsNothing);
+    await tester.tap(find.byTooltip('Reproducir').first);
+    await tester.pumpAndSettle();
 
     // Siguiente avanza en la cola.
     await tester.tap(find.byTooltip('Siguiente'));

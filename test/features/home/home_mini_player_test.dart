@@ -11,14 +11,20 @@ import 'package:sonify/features/catalog/domain/catalog_repository.dart';
 import 'package:sonify/features/catalog/domain/genre.dart';
 import 'package:sonify/features/catalog/domain/song.dart';
 import 'package:sonify/features/home/presentation/widgets/mini_player_bar.dart';
+import 'package:sonify/features/player/presentation/widgets/mini_progress_line.dart';
 
 import '../../helpers/fake_audio_player.dart';
 import '../../helpers/fake_download_repository.dart';
+import '../../helpers/fake_library_repository.dart';
 import '../../helpers/fake_network_status.dart';
 
 final class _LongCatalog implements CatalogRepository {
   @override
   Future<Result<List<Genre>, CatalogFailure>> getGenres() async => const Ok([]);
+
+  @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) async =>
+      const Ok([]);
 
   @override
   Future<Result<CatalogPage, CatalogFailure>> getSongs({
@@ -48,6 +54,13 @@ void main() {
     (tester) async {
       tester.view.physicalSize = const Size(1320, 2868);
       tester.view.devicePixelRatio = 3;
+      // La onda de lo que suena se anima sin fin: con "reducir movimiento"
+      // queda quieta y pumpAndSettle puede terminar.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
       addTearDown(tester.view.reset);
 
       final auth = FakeAuthRepository(latency: Duration.zero);
@@ -63,6 +76,9 @@ void main() {
             authRepositoryProvider.overrideWithValue(auth),
             audioPlayerProvider.overrideWithValue(player),
             downloadRepositoryProvider.overrideWithValue(downloads),
+            libraryRepositoryProvider.overrideWithValue(
+              FakeLibraryRepository(),
+            ),
             networkStatusProvider.overrideWithValue(FakeNetworkStatus()),
             catalogRepositoryProvider.overrideWithValue(_LongCatalog()),
           ],
@@ -87,6 +103,27 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(player.state.playing, isTrue);
+      // Con su línea de progreso al pie.
+      expect(
+        find.descendant(
+          of: find.byType(MiniPlayerBar),
+          matching: find.byType(MiniProgressLine),
+        ),
+        findsOneWidget,
+      );
+
+      // Siguiente y anterior desde la barra compacta.
+      Finder mini(String tooltip) => find.descendant(
+        of: find.byType(MiniPlayerBar),
+        matching: find.byTooltip(tooltip),
+      );
+      final first = player.state.current?.id;
+      await tester.tap(mini('Siguiente'));
+      await tester.pumpAndSettle();
+      expect(player.state.current?.id, isNot(first));
+      await tester.tap(mini('Anterior'));
+      await tester.pumpAndSettle();
+      expect(player.state.current?.id, first);
 
       // Tocarla vuelve al reproductor grande.
       await tester.tap(find.byType(MiniPlayerBar));

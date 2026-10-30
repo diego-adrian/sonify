@@ -96,7 +96,7 @@ class _UploadPageState extends ConsumerState<UploadPage> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.uploadTitle)),
+      appBar: AppBar(title: Text(l10n.uploadTitle, style: AppTypography.title)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -201,11 +201,11 @@ class _UploadPageState extends ConsumerState<UploadPage> {
         UploadFailure.descriptionTooLong => l10n.uploadErrorDescription,
         UploadFailure.coverUnsupported => l10n.uploadErrorCoverType,
         UploadFailure.coverTooLarge => l10n.uploadErrorCoverTooLarge,
-        UploadFailure.coverTooSmall => l10n.uploadErrorCoverTooSmall,
         UploadFailure.rightsNotAccepted => l10n.uploadErrorRights,
         UploadFailure.unsupportedType => l10n.uploadErrorType,
         UploadFailure.tooLarge => l10n.uploadErrorTooLarge,
         UploadFailure.dailyLimit => l10n.uploadErrorDailyLimit,
+        UploadFailure.notAdmin => l10n.uploadErrorNotAdmin,
         UploadFailure.network => l10n.uploadErrorNetwork,
         UploadFailure.unknown => l10n.uploadErrorUnknown,
       };

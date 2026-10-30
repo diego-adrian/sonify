@@ -39,8 +39,10 @@
   "repeatAll": "Repetir todo",
   "repeatOne": "Repetir esta canción",
   "uploadTitle": "Subir canción",
+  "themeToDark": "Cambiar a modo oscuro",
+  "themeToLight": "Cambiar a modo claro",
   "uploadPickFile": "Elegir archivo de audio",
-  "uploadFileHint": "WAV, FLAC, MP3 o M4A · hasta 200 MB",
+  "uploadFileHint": "MP3, M4A, WAV o FLAC · hasta 10 MB",
   "uploadSongTitle": "Título",
   "uploadGenre": "Género",
   "uploadGenreNone": "Sin género",
@@ -61,18 +63,17 @@
   "uploadErrorTitle": "Escribe un título (máximo 120 caracteres).",
   "uploadErrorRights": "Debes declarar que tienes los derechos de la canción.",
   "uploadErrorType": "Formato no soportado. Usa WAV, FLAC, MP3 o M4A.",
-  "uploadErrorTooLarge": "El archivo supera los 200 MB.",
+  "uploadErrorTooLarge": "El archivo supera los 10 MB. Prueba con MP3 o M4A.",
   "uploadErrorDailyLimit": "Llegaste al límite de subidas de hoy. Inténtalo mañana.",
   "uploadErrorNetwork": "Se perdió la conexión durante la subida. Inténtalo de nuevo.",
   "uploadErrorUnknown": "No pudimos subir la canción. Inténtalo de nuevo.",
   "uploadPickCover": "Elegir portada",
-  "uploadCoverHint": "Cuadrada, mín. 640 px\nJPG, PNG o WebP",
+  "uploadCoverHint": "Cuadrada\nJPG, PNG o WebP · hasta 3 MB",
   "uploadDescription": "Descripción (opcional)",
   "uploadDescriptionHint": "De qué trata, créditos, letra corta…",
   "uploadErrorDescription": "La descripción supera los 500 caracteres.",
   "uploadErrorCoverType": "La portada debe ser JPG, PNG o WebP.",
-  "uploadErrorCoverTooLarge": "La portada supera los 10 MB.",
-  "uploadErrorCoverTooSmall": "La portada debe medir al menos 640 × 640 px.",
+  "uploadErrorCoverTooLarge": "La portada supera los 3 MB.",
   "downloads": "Descargas",
   "downloadsEmpty": "Aún no tienes descargas.\nMantén presionada una canción para descargarla y escucharla sin señal.",
   "downloadsSummary": "{count, plural, =1{1 canción} other{{count} canciones}} · {size}",
@@ -87,6 +88,9 @@
     }
   },
   "downloadsDeleteAll": "Borrar todo",
+  "listeningCacheInfo": "Sonify guarda automáticamente en caché las canciones que escuchaste recientemente. Es similar al modo offline, con la única diferencia de que cuando se apague o se reinicie tu dispositivo se borrarán sin previo aviso. Si también quieres liberar espacio de las canciones en caché, puedes borrarlas con el botón Vaciar caché de Sonify.",
+  "listeningCacheClear": "Vaciar caché de Sonify",
+  "listeningCacheClearConfirm": "¿Vaciar las canciones escuchadas que se guardaron solas? Tus descargas no se borran; lo demás volverá a usar la red.",
   "downloadsDeleteAllConfirm": "¿Borrar todas las descargas? Tendrás que volver a bajarlas para escucharlas sin señal.",
   "cancel": "Cancelar",
   "delete": "Borrar",
@@ -138,5 +142,157 @@
         "type": "int"
       }
     }
-  }
+  },
+  "uploadErrorNotAdmin": "Solo los administradores pueden subir canciones.",
+  "navHome": "Inicio",
+  "navSearch": "Buscar",
+  "navLibrary": "Tu biblioteca",
+  "navLibraryShort": "Biblioteca",
+  "navPremium": "Premium",
+  "searchHint": "Canción o artista",
+  "searchPrompt": "Busca en todo el catálogo por canción o artista y guarda las que quieras escuchar.",
+  "searchNoResults": "No encontramos «{query}».",
+  "@searchNoResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "searchError": "No pudimos buscar. Inténtalo de nuevo.",
+  "searchOffline": "Sin conexión: buscando en lo que tienes en el teléfono.",
+  "clearSearch": "Borrar búsqueda",
+  "librarySavedSongs": "Tus canciones",
+  "librarySongCount": "{count, plural, =0{Sin canciones} =1{1 canción} other{{count} canciones}}",
+  "@librarySongCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "librarySongCountLimit": "{count} de {limit} canciones",
+  "@librarySongCountLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryPlaylists": "Playlists",
+  "libraryNewPlaylist": "Nueva playlist",
+  "libraryPlaylistsEmpty": "Crea una playlist para separar tus canciones, por ejemplo «Para el auto».",
+  "librarySongsEmpty": "Aún no guardaste canciones.\nBúscalas en Buscar y guárdalas para escucharlas.",
+  "libraryPlaylistEmpty": "Mantén presionada una canción y elige «Agregar a una playlist».",
+  "libraryError": "No pudimos cargar tu biblioteca.",
+  "playlistName": "Nombre de la playlist",
+  "playlistCreate": "Crear",
+  "playlistRename": "Cambiar nombre",
+  "playlistSave": "Guardar",
+  "playlistDelete": "Borrar playlist",
+  "playlistDeleteConfirm": "¿Borrar «{name}»? Las canciones siguen en tu biblioteca.",
+  "@playlistDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playlistMore": "Más opciones",
+  "songSave": "Guardar en tu biblioteca",
+  "songUnsave": "Quitar de tu biblioteca",
+  "songSaved": "Guardada en tu biblioteca",
+  "songUnsaved": "Quitada de tu biblioteca",
+  "songSavedTooltip": "Guardada",
+  "songAddToPlaylist": "Agregar a una playlist",
+  "songAddedToPlaylist": "Agregada a «{name}»",
+  "@songAddedToPlaylist": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "songRemoveFromPlaylist": "Quitar de esta playlist",
+  "libraryRemaining": "{count, plural, =0{No te quedan lugares} =1{Te queda 1 de {limit}} other{Te quedan {count} de {limit}}}",
+  "@libraryRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryErrorLimit": "Llegaste a {limit} canciones. Quita alguna de tu biblioteca o hazte Premium.",
+  "@libraryErrorLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryErrorNetwork": "Necesitas conexión para cambiar tu biblioteca.",
+  "libraryErrorName": "Escribe un nombre de hasta 60 caracteres.",
+  "libraryErrorUnknown": "No pudimos guardar el cambio. Inténtalo de nuevo.",
+  "seePremium": "Ver Premium",
+  "lockedTitle": "Guárdala para escucharla",
+  "lockedBody": "Con la cuenta gratis escuchas hasta {limit} canciones guardadas, con todo: streaming, sin señal y en segundo plano.",
+  "@lockedBody": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "lockedFull": "Ya guardaste {limit} canciones. Quita alguna de tu biblioteca o hazte Premium para escuchar sin límite.",
+  "@lockedFull": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "lockedTooltip": "Guardar para escuchar",
+  "premiumTitle": "Sonify Premium",
+  "premiumActive": "Eres Premium",
+  "premiumActiveBody": "Guarda y escucha todas las canciones que quieras, también sin señal y en segundo plano.",
+  "premiumFreeIntro": "Sin Premium puedes guardar hasta {limit} canciones, y con ellas tienes todos los beneficios:",
+  "@premiumFreeIntro": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "premiumBenefitStreaming": "Streaming en alta calidad",
+  "premiumBenefitOffline": "Escuchar sin señal (descargas)",
+  "premiumBenefitBackground": "Escuchar en segundo plano y con la pantalla bloqueada",
+  "premiumBenefitPlaylists": "Tus propias playlists",
+  "premiumWithPremium": "Con Premium",
+  "premiumUnlimited": "Canciones sin límite en tu biblioteca",
+  "premiumUsage": "Usas {count} de {limit}",
+  "@premiumUsage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "premiumCta": "Hazte Premium · {price} al mes",
+  "@premiumCta": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "premiumSoon": "Muy pronto podrás suscribirte desde la app."
 }

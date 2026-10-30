@@ -5,6 +5,7 @@ import '../../../core/lifecycle/app_lifecycle_provider.dart';
 import '../../../core/network/online_provider.dart';
 import '../../../core/result.dart';
 import '../../downloads/presentation/downloads_providers.dart';
+import '../../library/presentation/library_providers.dart';
 import '../domain/catalog_page.dart';
 import '../domain/genre.dart';
 import '../domain/song.dart';
@@ -100,28 +101,29 @@ class SongsFeed extends AsyncNotifier<CatalogFeed> {
 /// Lo que lista la Home (offline primero): el catálogo cuando llega y,
 /// mientras tanto, lo descargado, que suena sin red. Así, con señal débil, la
 /// app no se queda en la pantalla de carga esperando a Supabase. `null` si
-/// todavía no hay nada que mostrar.
+/// todavía no hay nada que mostrar. Las guardadas en la biblioteca se
+/// reemplazan por su versión de la biblioteca: si se guardó después de cargar
+/// el catálogo, ahí viene el audio firmado.
 final catalogSongsProvider = Provider<List<Song>?>((ref) {
-  final remote = ref.watch(songsProvider).value?.songs;
-  if (remote != null) return remote;
-  final downloaded = ref.watch(downloadedSongsProvider);
-  return downloaded.isEmpty ? null : downloaded;
+  final access = ref.watch(songAccessProvider);
+  final List<Song> songs =
+      ref.watch(songsProvider).value?.songs ??
+      ref.watch(downloadedSongsProvider);
+  if (songs.isEmpty && !ref.watch(songsProvider).hasValue) return null;
+  return [for (final song in songs) access.resolve(song)];
 });
 
-/// Las de [catalogSongsProvider] que pueden sonar ahora: todas con red; sin
-/// red, las descargadas y las de la caché de lo escuchado (las demás se ven
-/// atenuadas).
+/// Las de [catalogSongsProvider] que pueden sonar ahora: las que el usuario
+/// puede escuchar (gratis, solo las guardadas) y, sin red, solo si están
+/// descargadas o en la caché de lo escuchado (las demás se ven atenuadas).
 final playableSongsProvider = Provider<List<Song>>((ref) {
   final songs = ref.watch(catalogSongsProvider) ?? const <Song>[];
-  if (ref.watch(isOnlineProvider)) return songs;
-  final local = {
-    for (final song in ref.watch(downloadedSongsProvider)) song.id,
-    for (final song in ref.watch(cachedSongsProvider).value ?? const <Song>[])
-      song.id,
-  };
+  final access = ref.watch(songAccessProvider);
+  final online = ref.watch(isOnlineProvider);
   return [
     for (final song in songs)
-      if (local.contains(song.id)) song,
+      if (access.canPlay(song) && (online || access.local.contains(song.id)))
+        song,
   ];
 });
 

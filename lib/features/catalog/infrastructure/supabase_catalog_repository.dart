@@ -6,23 +6,25 @@ import '../domain/catalog_failure.dart';
 import '../domain/catalog_page.dart';
 import '../domain/catalog_repository.dart';
 import '../domain/genre.dart';
+import '../../downloads/domain/download_ports.dart';
 import '../domain/song.dart';
+import 'catalog_song_row.dart';
 
 /// Catálogo desde la vista `catalog_songs`: una sola consulta trae las
 /// canciones listas, el artista y las rutas firmadas del CDN. La RLS decide
 /// qué ve cada usuario (públicas + las propias).
-final class SupabaseCatalogRepository implements CatalogRepository {
+final class SupabaseCatalogRepository
+    implements CatalogRepository, SongRefresher {
   SupabaseCatalogRepository(this._client, {required String cdnBaseUrl})
-    : _cdn = cdnBaseUrl.endsWith('/')
-          ? cdnBaseUrl.substring(0, cdnBaseUrl.length - 1)
-          : cdnBaseUrl;
+    : _rows = CatalogSongRow(cdnBaseUrl: cdnBaseUrl);
 
   final SupabaseClient _client;
-  final String _cdn;
+  final CatalogSongRow _rows;
 
-  static const _columns =
-      'id,created_at,title,artist_name,genre_id,duration_ms,cover_path,'
-      'cover_large_path,audio_path,audio_size_bytes,audio_sha256';
+  static const _columns = CatalogSongRow.columns;
+
+  /// Máximo de resultados de una búsqueda (la función lo limita a 50).
+  static const searchLimit = 30;
 
   @override
   Future<Result<List<Genre>, CatalogFailure>> getGenres() => _guard(() async {
@@ -65,7 +67,7 @@ final class SupabaseCatalogRepository implements CatalogRepository {
     final page = rows.take(limit).toList();
     final last = page.isEmpty ? null : page.last;
     return CatalogPage(
-      [for (final row in page) _song(row)],
+      [for (final row in page) _rows.song(row)],
       next: rows.length > limit && last != null
           ? SongCursor(
               createdAt: last['created_at'] as String,
@@ -75,22 +77,36 @@ final class SupabaseCatalogRepository implements CatalogRepository {
     );
   });
 
-  Song _song(Map<String, dynamic> row) => Song(
-    id: row['id'] as String,
-    title: row['title'] as String,
-    artistName: row['artist_name'] as String,
-    duration: Duration(milliseconds: (row['duration_ms'] as num).toInt()),
-    genreId: (row['genre_id'] as num?)?.toInt(),
-    cover: _url(row['cover_path']),
-    coverLarge: _url(row['cover_large_path']),
-    audio: _url(row['audio_path']),
-    audioSizeBytes: (row['audio_size_bytes'] as num?)?.toInt(),
-    audioSha256: row['audio_sha256'] as String?,
-  );
+  /// Título o artista, sin distinguir tildes ni mayúsculas (RPC
+  /// `search_songs`, que aplica la misma RLS que el catálogo).
+  @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) =>
+      _guard(() async {
+        final rows = await _client
+            .rpc(
+              'search_songs',
+              params: {'p_query': query, 'p_limit': searchLimit},
+            )
+            .select(_columns);
+        return [for (final row in rows) _rows.song(row)];
+      });
 
-  /// `null` si la canción no tiene ese archivo o aún no está configurado el
-  /// secreto de firma.
-  Uri? _url(Object? path) => path is String ? Uri.parse('$_cdn/$path') : null;
+  /// Las mismas canciones con rutas firmadas nuevas.
+  @override
+  Future<List<Song>> fresh(List<String> songIds) async {
+    if (songIds.isEmpty) return const [];
+    final result = await _guard(() async {
+      final rows = await _client
+          .from('catalog_songs')
+          .select(_columns)
+          .inFilter('id', songIds);
+      return [for (final row in rows) _rows.song(row)];
+    });
+    return switch (result) {
+      Ok(:final value) => value,
+      Err() => const [],
+    };
+  }
 
   static Future<Result<T, CatalogFailure>> _guard<T>(
     Future<T> Function() body,

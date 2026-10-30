@@ -8,6 +8,7 @@ import '../domain/catalog_failure.dart';
 import '../domain/catalog_page.dart';
 import '../domain/catalog_repository.dart';
 import '../domain/genre.dart';
+import '../domain/song.dart';
 
 /// Sin red (sótanos, locales), el catálogo muestra lo descargado en lugar de
 /// un error. La UI no sabe de dónde vienen las canciones.
@@ -48,24 +49,42 @@ final class OfflineFallbackCatalogRepository implements CatalogRepository {
       _remote.getSongs(genreId: genreId, limit: limit, after: after),
     );
     if (remote case Err(error: CatalogFailure.network) when after == null) {
-      final entries = await _downloads.watchAll().first;
-      final downloaded = [
-        for (final entry in entries)
-          if (entry.state == DownloadState.done) entry.song,
-      ];
-      final ids = {for (final song in downloaded) song.id};
-      final cached = await _cache.watchSongs().first;
       return Ok(
         CatalogPage([
-          for (final song in [
-            ...downloaded,
-            ...cached.where((song) => !ids.contains(song.id)),
-          ])
+          for (final song in await _local())
             if (genreId == null || song.genreId == genreId) song,
         ]),
       );
     }
     return remote;
+  }
+
+  /// Sin red busca en lo que está en el dispositivo.
+  @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) async {
+    final remote = await _withTimeout(_remote.searchSongs(query));
+    if (remote case Err(error: CatalogFailure.network)) {
+      final needle = foldForSearch(query);
+      return Ok([
+        for (final song in await _local())
+          if (foldForSearch(song.title).contains(needle) ||
+              foldForSearch(song.artistName).contains(needle))
+            song,
+      ]);
+    }
+    return remote;
+  }
+
+  /// Lo descargado y luego lo de la caché de lo escuchado, sin repetir.
+  Future<List<Song>> _local() async {
+    final entries = await _downloads.watchAll().first;
+    final downloaded = [
+      for (final entry in entries)
+        if (entry.state == DownloadState.done) entry.song,
+    ];
+    final ids = {for (final song in downloaded) song.id};
+    final cached = await _cache.watchSongs().first;
+    return [...downloaded, ...cached.where((song) => !ids.contains(song.id))];
   }
 
   Future<Result<T, CatalogFailure>> _withTimeout<T>(
@@ -74,4 +93,16 @@ final class OfflineFallbackCatalogRepository implements CatalogRepository {
     timeout,
     onTimeout: () => const Err(CatalogFailure.network),
   );
+}
+
+/// Minúsculas y sin tildes, como `unaccent(lower(...))` en `search_songs`.
+String foldForSearch(String text) {
+  const from = 'áàäâãéèëêíìïîóòöôõúùüûñç';
+  const to = 'aaaaaeeeeiiiiooooouuuunc';
+  final buffer = StringBuffer();
+  for (final char in text.trim().toLowerCase().split('')) {
+    final index = from.indexOf(char);
+    buffer.write(index < 0 ? char : to[index]);
+  }
+  return buffer.toString();
 }

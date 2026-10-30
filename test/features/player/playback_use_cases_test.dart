@@ -41,10 +41,10 @@ void main() {
   test('TogglePlayback alterna entre pausa y reproducción', () async {
     await PlaySongs(player)([_song('1')], _song('1'));
 
-    await TogglePlayback(player)(player.state);
+    await TogglePlayback(player)();
     expect(player.state.playing, isFalse);
 
-    await TogglePlayback(player)(player.state);
+    await TogglePlayback(player)();
     expect(player.state.playing, isTrue);
   });
 

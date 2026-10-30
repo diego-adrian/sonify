@@ -13,6 +13,7 @@ import 'package:sonify/features/catalog/domain/song.dart';
 
 import '../../helpers/fake_audio_player.dart';
 import '../../helpers/fake_download_repository.dart';
+import '../../helpers/fake_library_repository.dart';
 import '../../helpers/fake_network_status.dart';
 
 /// 75 canciones: 3 páginas de 30, 30 y 15.
@@ -33,6 +34,10 @@ final class _PagedCatalog implements CatalogRepository {
 
   @override
   Future<Result<List<Genre>, CatalogFailure>> getGenres() async => const Ok([]);
+
+  @override
+  Future<Result<List<Song>, CatalogFailure>> searchSongs(String query) async =>
+      const Ok([]);
 
   @override
   Future<Result<CatalogPage, CatalogFailure>> getSongs({
@@ -80,6 +85,7 @@ void main() {
           authRepositoryProvider.overrideWithValue(auth),
           audioPlayerProvider.overrideWithValue(player),
           downloadRepositoryProvider.overrideWithValue(downloads),
+          libraryRepositoryProvider.overrideWithValue(FakeLibraryRepository()),
           networkStatusProvider.overrideWithValue(FakeNetworkStatus()),
           catalogRepositoryProvider.overrideWithValue(catalog),
         ],

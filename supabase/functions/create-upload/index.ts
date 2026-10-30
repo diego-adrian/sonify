@@ -123,6 +123,10 @@ serve(async (req) => {
   });
   if (insertError) {
     if (insertError.code === '23503') return json({ error: 'invalid_genre' }, 400);
+    // Solo los admins suben (trigger `songs_enforce_admin_upload`).
+    if (insertError.code === 'P0001' && insertError.message === 'not_admin') {
+      return json({ error: 'not_admin' }, 403);
+    }
     throw insertError;
   }
 

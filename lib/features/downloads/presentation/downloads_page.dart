@@ -10,6 +10,7 @@ import '../../catalog/presentation/widgets/song_tile.dart';
 import '../domain/download_entry.dart';
 import 'download_actions.dart';
 import 'downloads_providers.dart';
+import '../../../core/widgets/visible_center.dart';
 
 /// Lo que se puede escuchar sin señal. Funciona sin red: lee de Drift.
 class DownloadsPage extends ConsumerStatefulWidget {
@@ -29,7 +30,6 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final all = ref.watch(downloadsProvider).value ?? const <DownloadEntry>[];
     _dismissed.retainWhere((id) => all.any((e) => e.song.id == id));
     final entries = [
@@ -41,10 +41,11 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
         if (entry.state == DownloadState.done) entry,
     ];
     final used = done.fold<int>(0, (sum, e) => sum + (e.sizeBytes ?? 0));
+    final hasCache = (ref.watch(cachedBytesProvider).value ?? 0) > 0;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.downloads, style: AppTypography.title),
+        title: Text(l10n.downloads, style: AppTypography.appBarTitle),
         actions: [
           if (entries.isNotEmpty)
             TextButton(
@@ -53,86 +54,145 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
             ),
         ],
       ),
-      body: entries.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  l10n.downloadsEmpty,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.body.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+      body: Column(
+        children: [
+          Expanded(
+            // El pie de la caché ya queda por encima del menú.
+            child: MediaQuery.removePadding(
+              context: context,
+              removeBottom: hasCache,
+              child: _list(entries, done, used),
+            ),
+          ),
+          if (hasCache) _cacheFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _list(
+    List<DownloadEntry> entries,
+    List<DownloadEntry> done,
+    int used,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return entries.isEmpty
+        ? VisibleCenter(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                l10n.downloadsEmpty,
+                textAlign: TextAlign.center,
+                style: AppTypography.body.copyWith(
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
-            )
-          : CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                    child: Text(
-                      l10n.downloadsSummary(done.length, formatBytes(used)),
-                      style: AppTypography.bodySmall.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+            ),
+          )
+        : CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  child: Text(
+                    l10n.downloadsSummary(done.length, formatBytes(used)),
+                    style: AppTypography.bodySmall.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ),
-                SliverFixedExtentList.builder(
-                  itemExtent: _rowHeight,
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    return Dismissible(
-                      key: ValueKey(entry.song.id),
-                      direction: DismissDirection.endToStart,
-                      background: ColoredBox(
-                        color: scheme.primary,
-                        child: Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 28),
-                            child: Icon(
-                              Icons.delete_outline_rounded,
-                              color: scheme.onPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      confirmDismiss: (_) => _confirmRemove(entry),
-                      onDismissed: (_) {
-                        setState(() => _dismissed.add(entry.song.id));
-                        ref.read(removeDownloadProvider)(entry.song.id);
+              ),
+              SliverFixedExtentList.builder(
+                itemExtent: _rowHeight,
+                itemCount: entries.length,
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
+                  return Dismissible(
+                    key: ValueKey(entry.song.id),
+                    direction: DismissDirection.endToStart,
+                    background: _RemoveBackground(title: entry.song.title),
+                    confirmDismiss: (_) => _confirmRemove(entry),
+                    onDismissed: (_) {
+                      setState(() => _dismissed.add(entry.song.id));
+                      ref.read(removeDownloadProvider)(entry.song.id);
+                    },
+                    child: _DownloadTile(
+                      entry: entry,
+                      onTap: entry.state == DownloadState.done
+                          ? () => ref.read(playSongsProvider)([
+                              for (final e in done) e.song,
+                            ], entry.song)
+                          : null,
+                      onRetry: () => downloadSongs(context, ref, [entry.song]),
+                      onRemove: () async {
+                        if (await _confirmRemove(entry)) {
+                          await ref.read(removeDownloadProvider)(entry.song.id);
+                        }
                       },
-                      child: _DownloadTile(
-                        entry: entry,
-                        onTap: entry.state == DownloadState.done
-                            ? () => ref.read(playSongsProvider)([
-                                for (final e in done) e.song,
-                              ], entry.song)
-                            : null,
-                        onRetry: () =>
-                            downloadSongs(context, ref, [entry.song]),
-                        onRemove: () async {
-                          if (await _confirmRemove(entry)) {
-                            await ref.read(removeDownloadProvider)(
-                              entry.song.id,
-                            );
-                          }
-                        },
-                      ),
-                    );
-                  },
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
+                    ),
+                  );
+                },
+              ),
+              SliverToBoxAdapter(
+                child: Builder(
+                  builder: (context) => SizedBox(
                     height: MediaQuery.paddingOf(context).bottom + 16,
                   ),
                 ),
-              ],
+              ),
+            ],
+          );
+  }
+
+  /// Qué es la caché de lo escuchado (hasta 300 MB) y cómo vaciarla, justo
+  /// encima del menú. Solo si tiene algo.
+  Widget _cacheFooter() {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: scheme.outline)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          8,
+          MediaQuery.paddingOf(context).bottom + 4,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Text(
+                l10n.listeningCacheInfo,
+                style: AppTypography.trackSubtitle.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ),
+            TextButton(
+              onPressed: _confirmClearCache,
+              child: Text(l10n.listeningCacheClear),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _confirmClearCache() async {
+    final confirmed = await _confirm(
+      AppLocalizations.of(context).listeningCacheClearConfirm,
+    );
+    if (confirmed) {
+      // Lo que suena puede venir de la caché.
+      await ref.read(stopPlaybackProvider)();
+      await ref.read(clearListeningCacheProvider)();
+      ref.invalidate(cachedBytesProvider);
+    }
   }
 
   /// Igual al tocar la papelera o al deslizar la fila.
@@ -172,6 +232,46 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
   }
 }
 
+/// Fondo rojo al deslizar para borrar: con la fila fuera de la pantalla (y
+/// mientras se pide confirmación) sigue diciendo qué canción se va a borrar.
+class _RemoveBackground extends StatelessWidget {
+  const _RemoveBackground({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.primary,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.trackTitle.copyWith(color: onPrimary),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              l10n.delete,
+              style: AppTypography.trackSubtitle.copyWith(color: onPrimary),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.delete_outline_rounded, color: onPrimary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DownloadTile extends ConsumerWidget {
   const _DownloadTile({
     required this.entry,
@@ -207,15 +307,13 @@ class _DownloadTile extends ConsumerWidget {
     };
 
     final failed = entry.state == DownloadState.failed;
-    // Mismo estilo de fila que la Home: portada, título, artista + estado y
-    // botones redondos (borrar en rojo y reproducir).
+    // Mismo estilo de fila que la Home: portada, título, solo el estado y el
+    // botón de borrar (en rojo); se reproduce tocando la fila.
     return SongTile(
       song: entry.song,
-      subtitle: '${entry.song.artistName} · $status',
+      subtitle: status,
       subtitleColor: failed ? scheme.error : null,
-      actionTooltip: l10n.playSong(entry.song.title),
       onTap: onTap,
-      onAction: onTap,
       secondaryAction: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

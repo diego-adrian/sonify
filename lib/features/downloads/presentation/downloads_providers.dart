@@ -23,6 +23,12 @@ final cachedSongsProvider = StreamProvider<List<Song>>(
   (ref) => ref.watch(listeningCacheProvider).watchSongs(),
 );
 
+/// Lo que ocupa la caché de lo escuchado; se recalcula cuando cambia.
+final cachedBytesProvider = FutureProvider<int>((ref) {
+  ref.watch(cachedSongsProvider);
+  return ref.watch(listeningCacheUsageProvider)();
+});
+
 /// Estado por id de canción, para marcar las filas del catálogo.
 final downloadStatesProvider = Provider<Map<String, DownloadState>>((ref) {
   final entries = ref.watch(downloadsProvider).value ?? const [];

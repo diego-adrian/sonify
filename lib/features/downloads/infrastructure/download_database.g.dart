@@ -49,6 +49,17 @@ class $DownloadsTable extends Downloads
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _durationMsMeta = const VerificationMeta(
     'durationMs',
   );
@@ -183,6 +194,7 @@ class $DownloadsTable extends Downloads
     title,
     artistName,
     genreId,
+    description,
     durationMs,
     audioUrl,
     coverUrl,
@@ -236,6 +248,15 @@ class $DownloadsTable extends Downloads
       context.handle(
         _genreIdMeta,
         genreId.isAcceptableOrUnknown(data['genre_id']!, _genreIdMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
       );
     }
     if (data.containsKey('duration_ms')) {
@@ -346,6 +367,10 @@ class $DownloadsTable extends Downloads
         DriftSqlType.int,
         data['${effectivePrefix}genre_id'],
       ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
       durationMs: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}duration_ms'],
@@ -413,6 +438,9 @@ class Download extends DataClass implements Insertable<Download> {
   final String title;
   final String artistName;
   final int? genreId;
+
+  /// Se muestra bajo el título también sin red (v2).
+  final String? description;
   final int durationMs;
   final String audioUrl;
   final String? coverUrl;
@@ -434,6 +462,7 @@ class Download extends DataClass implements Insertable<Download> {
     required this.title,
     required this.artistName,
     this.genreId,
+    this.description,
     required this.durationMs,
     required this.audioUrl,
     this.coverUrl,
@@ -455,6 +484,9 @@ class Download extends DataClass implements Insertable<Download> {
     map['artist_name'] = Variable<String>(artistName);
     if (!nullToAbsent || genreId != null) {
       map['genre_id'] = Variable<int>(genreId);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
     }
     map['duration_ms'] = Variable<int>(durationMs);
     map['audio_url'] = Variable<String>(audioUrl);
@@ -497,6 +529,9 @@ class Download extends DataClass implements Insertable<Download> {
       genreId: genreId == null && nullToAbsent
           ? const Value.absent()
           : Value(genreId),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
       durationMs: Value(durationMs),
       audioUrl: Value(audioUrl),
       coverUrl: coverUrl == null && nullToAbsent
@@ -536,6 +571,7 @@ class Download extends DataClass implements Insertable<Download> {
       title: serializer.fromJson<String>(json['title']),
       artistName: serializer.fromJson<String>(json['artistName']),
       genreId: serializer.fromJson<int?>(json['genreId']),
+      description: serializer.fromJson<String?>(json['description']),
       durationMs: serializer.fromJson<int>(json['durationMs']),
       audioUrl: serializer.fromJson<String>(json['audioUrl']),
       coverUrl: serializer.fromJson<String?>(json['coverUrl']),
@@ -560,6 +596,7 @@ class Download extends DataClass implements Insertable<Download> {
       'title': serializer.toJson<String>(title),
       'artistName': serializer.toJson<String>(artistName),
       'genreId': serializer.toJson<int?>(genreId),
+      'description': serializer.toJson<String?>(description),
       'durationMs': serializer.toJson<int>(durationMs),
       'audioUrl': serializer.toJson<String>(audioUrl),
       'coverUrl': serializer.toJson<String?>(coverUrl),
@@ -582,6 +619,7 @@ class Download extends DataClass implements Insertable<Download> {
     String? title,
     String? artistName,
     Value<int?> genreId = const Value.absent(),
+    Value<String?> description = const Value.absent(),
     int? durationMs,
     String? audioUrl,
     Value<String?> coverUrl = const Value.absent(),
@@ -599,6 +637,7 @@ class Download extends DataClass implements Insertable<Download> {
     title: title ?? this.title,
     artistName: artistName ?? this.artistName,
     genreId: genreId.present ? genreId.value : this.genreId,
+    description: description.present ? description.value : this.description,
     durationMs: durationMs ?? this.durationMs,
     audioUrl: audioUrl ?? this.audioUrl,
     coverUrl: coverUrl.present ? coverUrl.value : this.coverUrl,
@@ -624,6 +663,9 @@ class Download extends DataClass implements Insertable<Download> {
           ? data.artistName.value
           : this.artistName,
       genreId: data.genreId.present ? data.genreId.value : this.genreId,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
       durationMs: data.durationMs.present
           ? data.durationMs.value
           : this.durationMs,
@@ -654,6 +696,7 @@ class Download extends DataClass implements Insertable<Download> {
           ..write('title: $title, ')
           ..write('artistName: $artistName, ')
           ..write('genreId: $genreId, ')
+          ..write('description: $description, ')
           ..write('durationMs: $durationMs, ')
           ..write('audioUrl: $audioUrl, ')
           ..write('coverUrl: $coverUrl, ')
@@ -676,6 +719,7 @@ class Download extends DataClass implements Insertable<Download> {
     title,
     artistName,
     genreId,
+    description,
     durationMs,
     audioUrl,
     coverUrl,
@@ -697,6 +741,7 @@ class Download extends DataClass implements Insertable<Download> {
           other.title == this.title &&
           other.artistName == this.artistName &&
           other.genreId == this.genreId &&
+          other.description == this.description &&
           other.durationMs == this.durationMs &&
           other.audioUrl == this.audioUrl &&
           other.coverUrl == this.coverUrl &&
@@ -716,6 +761,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
   final Value<String> title;
   final Value<String> artistName;
   final Value<int?> genreId;
+  final Value<String?> description;
   final Value<int> durationMs;
   final Value<String> audioUrl;
   final Value<String?> coverUrl;
@@ -734,6 +780,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
     this.title = const Value.absent(),
     this.artistName = const Value.absent(),
     this.genreId = const Value.absent(),
+    this.description = const Value.absent(),
     this.durationMs = const Value.absent(),
     this.audioUrl = const Value.absent(),
     this.coverUrl = const Value.absent(),
@@ -753,6 +800,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
     required String title,
     required String artistName,
     this.genreId = const Value.absent(),
+    this.description = const Value.absent(),
     required int durationMs,
     required String audioUrl,
     this.coverUrl = const Value.absent(),
@@ -779,6 +827,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
     Expression<String>? title,
     Expression<String>? artistName,
     Expression<int>? genreId,
+    Expression<String>? description,
     Expression<int>? durationMs,
     Expression<String>? audioUrl,
     Expression<String>? coverUrl,
@@ -798,6 +847,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
       if (title != null) 'title': title,
       if (artistName != null) 'artist_name': artistName,
       if (genreId != null) 'genre_id': genreId,
+      if (description != null) 'description': description,
       if (durationMs != null) 'duration_ms': durationMs,
       if (audioUrl != null) 'audio_url': audioUrl,
       if (coverUrl != null) 'cover_url': coverUrl,
@@ -819,6 +869,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
     Value<String>? title,
     Value<String>? artistName,
     Value<int?>? genreId,
+    Value<String?>? description,
     Value<int>? durationMs,
     Value<String>? audioUrl,
     Value<String?>? coverUrl,
@@ -838,6 +889,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
       title: title ?? this.title,
       artistName: artistName ?? this.artistName,
       genreId: genreId ?? this.genreId,
+      description: description ?? this.description,
       durationMs: durationMs ?? this.durationMs,
       audioUrl: audioUrl ?? this.audioUrl,
       coverUrl: coverUrl ?? this.coverUrl,
@@ -868,6 +920,9 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
     }
     if (genreId.present) {
       map['genre_id'] = Variable<int>(genreId.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
     }
     if (durationMs.present) {
       map['duration_ms'] = Variable<int>(durationMs.value);
@@ -920,6 +975,7 @@ class DownloadsCompanion extends UpdateCompanion<Download> {
           ..write('title: $title, ')
           ..write('artistName: $artistName, ')
           ..write('genreId: $genreId, ')
+          ..write('description: $description, ')
           ..write('durationMs: $durationMs, ')
           ..write('audioUrl: $audioUrl, ')
           ..write('coverUrl: $coverUrl, ')
@@ -954,6 +1010,7 @@ typedef $$DownloadsTableCreateCompanionBuilder = DownloadsCompanion Function({
   required String title,
   required String artistName,
   Value<int?> genreId,
+  Value<String?> description,
   required int durationMs,
   required String audioUrl,
   Value<String?> coverUrl,
@@ -973,6 +1030,7 @@ typedef $$DownloadsTableUpdateCompanionBuilder = DownloadsCompanion Function({
   Value<String> title,
   Value<String> artistName,
   Value<int?> genreId,
+  Value<String?> description,
   Value<int> durationMs,
   Value<String> audioUrl,
   Value<String?> coverUrl,
@@ -1014,6 +1072,11 @@ class $$DownloadsTableFilterComposer
 
   ColumnFilters<int> get genreId => $composableBuilder(
     column: $table.genreId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1108,6 +1171,11 @@ class $$DownloadsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get durationMs => $composableBuilder(
     column: $table.durationMs,
     builder: (column) => ColumnOrderings(column),
@@ -1192,6 +1260,11 @@ class $$DownloadsTableAnnotationComposer
   GeneratedColumn<int> get genreId =>
       $composableBuilder(column: $table.genreId, builder: (column) => column);
 
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get durationMs => $composableBuilder(
     column: $table.durationMs,
     builder: (column) => column,
@@ -1272,6 +1345,7 @@ class $$DownloadsTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> artistName = const Value.absent(),
                 Value<int?> genreId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<int> durationMs = const Value.absent(),
                 Value<String> audioUrl = const Value.absent(),
                 Value<String?> coverUrl = const Value.absent(),
@@ -1290,6 +1364,7 @@ class $$DownloadsTableTableManager
                 title: title,
                 artistName: artistName,
                 genreId: genreId,
+                description: description,
                 durationMs: durationMs,
                 audioUrl: audioUrl,
                 coverUrl: coverUrl,
@@ -1310,6 +1385,7 @@ class $$DownloadsTableTableManager
                 required String title,
                 required String artistName,
                 Value<int?> genreId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 required int durationMs,
                 required String audioUrl,
                 Value<String?> coverUrl = const Value.absent(),
@@ -1328,6 +1404,7 @@ class $$DownloadsTableTableManager
                 title: title,
                 artistName: artistName,
                 genreId: genreId,
+                description: description,
                 durationMs: durationMs,
                 audioUrl: audioUrl,
                 coverUrl: coverUrl,

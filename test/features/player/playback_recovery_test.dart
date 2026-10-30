@@ -99,9 +99,25 @@ void main() {
     }
     expect(retries, 3);
 
+    await recovery.ensureLoaded();
     recovery.recovered();
     recovery.failed(wasPlaying: true);
     await tester.pump(const Duration(seconds: 2));
     expect(retries, 4);
+  });
+
+  testWidgets('un "listo" antes de recargar no corta los reintentos', (
+    tester,
+  ) async {
+    recovery.failed(wasPlaying: true);
+    // Al pausar la pista que falló, aún con búfer, el nativo dice "listo".
+    recovery.recovered();
+    await tester.pump(const Duration(seconds: 2));
+    expect(retries, 1);
+
+    // El reintento falló: siguen los que faltan.
+    recovery.failed(wasPlaying: false);
+    await tester.pump(const Duration(seconds: 4));
+    expect(retries, 2);
   });
 }

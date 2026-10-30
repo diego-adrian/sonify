@@ -8,10 +8,12 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/network/media_url.dart';
 import '../../catalog/domain/song.dart';
 import '../../player/domain/local_audio.dart';
 import '../domain/download_entry.dart';
 import '../domain/download_ports.dart';
+import '../domain/fresh_urls.dart';
 import 'device_storage.dart';
 import 'download_database.dart';
 import 'download_key_store.dart';
@@ -37,6 +39,7 @@ final class BackgroundDownloadRepository
     required this.userId,
     FileDownloader? downloader,
     DownloadKeyStore? keys,
+    this._refresher,
     this.wifiOnly = true,
     this.maxConcurrent = 4,
   }) : _downloader = downloader ?? FileDownloader(),
@@ -57,6 +60,9 @@ final class BackgroundDownloadRepository
 
   final FileDownloader _downloader;
   final DownloadKeyStore _keys;
+
+  /// URLs firmadas nuevas para reintentar (vencen en 24–48 h).
+  final SongRefresher? _refresher;
   late final Future<_Storage> _storage = _open();
 
   final _progress = <String, double>{};
@@ -113,6 +119,7 @@ final class BackgroundDownloadRepository
               title: song.title,
               artistName: song.artistName,
               genreId: Value(song.genreId),
+              description: Value(song.description),
               durationMs: song.duration.inMilliseconds,
               audioUrl: audio.toString(),
               coverUrl: Value(song.cover?.toString()),
@@ -262,6 +269,7 @@ final class BackgroundDownloadRepository
       final queued = await (storage.db.select(
         storage.db.downloads,
       )..where((r) => r.state.equalsValue(DownloadRowState.queued))).get();
+      final lost = <Song>[];
       for (final row in queued) {
         final record = await _downloader.database.recordForId(row.taskId);
         switch (record?.status) {
@@ -270,11 +278,13 @@ final class BackgroundDownloadRepository
           case TaskStatus.failed || TaskStatus.notFound:
             await _markFailed(storage, row.songId);
           case null:
-            await enqueue([_song(row, storage)]);
+            lost.add(_remoteSong(row));
           default:
             break;
         }
       }
+      // Tras volver a entrar pueden haber pasado días: URLs nuevas.
+      if (lost.isNotEmpty) await enqueue(await _withFreshUrls(lost));
     } catch (error, stack) {
       debugPrint('Descargas: no se pudo reconciliar: $error\n$stack');
     }
@@ -325,7 +335,9 @@ final class BackgroundDownloadRepository
           'Descargas: $songId falló (${update.responseStatusCode}): '
           '${update.exception?.description}',
         );
-        await _markFailed(storage, songId);
+        if (!await _retryWithFreshUrl(storage, update.task, songId)) {
+          await _markFailed(storage, songId);
+        }
       case (_Kind.cover, TaskStatus.complete):
         if (await _row(storage, songId) == null) {
           // Se quitó la descarga mientras bajaba la portada.
@@ -400,6 +412,30 @@ final class BackgroundDownloadRepository
     }
   }
 
+  /// Si falló porque la URL firmada venció (p. ej. esperó Wi-Fi más de un
+  /// día), se vuelve a encolar una vez con una nueva. `false` si no aplica.
+  Future<bool> _retryWithFreshUrl(
+    _Storage storage,
+    Task task,
+    String songId,
+  ) async {
+    if (!isMediaUrlExpired(Uri.tryParse(task.url))) return false;
+    final row = await _row(storage, songId);
+    if (row == null || row.taskId != task.taskId) return false;
+    final song = (await _withFreshUrls([_remoteSong(row)])).single;
+    if (isMediaUrlExpired(song.audio)) return false;
+    await _deleteIfExists(File(p.join(storage.root, 'tmp', '$songId.part')));
+    await enqueue([song]);
+    return true;
+  }
+
+  Future<List<Song>> _withFreshUrls(List<Song> songs) {
+    final refresher = _refresher;
+    return refresher == null
+        ? Future.value(songs)
+        : withFreshUrls(songs, refresher);
+  }
+
   Future<void> _markFailed(_Storage storage, String songId) async {
     await _updateRow(
       storage,
@@ -455,6 +491,7 @@ final class BackgroundDownloadRepository
       artistName: row.artistName,
       duration: Duration(milliseconds: row.durationMs),
       genreId: row.genreId,
+      description: row.description,
       cover: cover,
       // Sin red, la grande no se puede cargar: se usa la miniatura local.
       coverLarge: localCover ?? _uri(row.coverLargeUrl) ?? cover,
@@ -462,6 +499,20 @@ final class BackgroundDownloadRepository
       audioSha256: row.expectedSha256,
     );
   }
+
+  /// Para volver a encolarla: con las URLs remotas (no la portada local).
+  Song _remoteSong(Download row) => Song(
+    id: row.songId,
+    title: row.title,
+    artistName: row.artistName,
+    duration: Duration(milliseconds: row.durationMs),
+    genreId: row.genreId,
+    description: row.description,
+    cover: _uri(row.coverUrl),
+    coverLarge: _uri(row.coverLargeUrl),
+    audio: Uri.parse(row.audioUrl),
+    audioSha256: row.expectedSha256,
+  );
 
   static Uri? _uri(String? value) => value == null ? null : Uri.parse(value);
 
